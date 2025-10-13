@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -88,6 +89,15 @@ Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
 
   if (Platform.isAndroid) {
+    // 创建通知渠道（Android 8.0+必需）
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'autowifi_channel', // id
+      'Auto-WIFI Service', // title
+      description: '保持校园网连接的服务', // description
+      importance: Importance.low, // 重要性
+    );
+
+    // 更新Android配置
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: backgroundTask,
@@ -96,7 +106,7 @@ Future<void> _initBackgroundService() async {
         notificationChannelId: 'autowifi_channel',
         initialNotificationTitle: 'Auto-WIFI',
         initialNotificationContent: '保持校园网连接',
-        foregroundServiceTypes: [AndroidForegroundType.location],
+        foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
       iosConfiguration: IosConfiguration(),
     );
