@@ -1,0 +1,20 @@
+# Miscellaneous
+*.iml
+*.lock
+.hg/
+.svn/
+.idea/
+.vscode/
+
+# Build files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build
+build/*
+/windows/flutter/ephemeral/
+
+# IDEs and OS files
+.DS_Store
+Thumbs.db
