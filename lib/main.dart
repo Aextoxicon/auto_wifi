@@ -11,36 +11,42 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 Future<void> backgroundTask(ServiceInstance service) async {
   // 使用 Timer.periodic 并保存 timer 引用以便后续取消
   Timer? timer;
-  timer = Timer.periodic(Duration(seconds: 3), (_) async {
-    final prefs = await SharedPreferences.getInstance();
-    final username = prefs.getString('username') ?? '';
-    final password = prefs.getString('password') ?? '';
-    if (username.isEmpty || password.isEmpty) return;
 
-    bool netOk = await _isInternetOk();
-    int normal = prefs.getInt('normal_count') ?? 0;
-    int reconnect = prefs.getInt('reconnect_count') ?? 0;
-    int fail = prefs.getInt('fail_count') ?? 0;
-
-    if (netOk) {
-      normal++;
-    } else {
-      bool ok = await _login(username, password);
-      if (ok) {
-        reconnect++;
-      } else {
-        fail++;
-      }
-    }
-
-    await _saveCounters(normal, reconnect, fail);
-  });
-
-  // 监听服务销毁事件
+  // 监听服务销毁事件 - 放在timer创建之前
   service.on('stopService').listen((event) {
     timer?.cancel();
     timer = null;
-    service.stopSelf();
+    service.stopSelf(); // 确保服务停止
+  });
+
+  timer = Timer.periodic(Duration(seconds: 3), (_) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('username') ?? '';
+      final password = prefs.getString('password') ?? '';
+      if (username.isEmpty || password.isEmpty) return;
+
+      bool netOk = await _isInternetOk();
+      int normal = prefs.getInt('normal_count') ?? 0;
+      int reconnect = prefs.getInt('reconnect_count') ?? 0;
+      int fail = prefs.getInt('fail_count') ?? 0;
+
+      if (netOk) {
+        normal++;
+      } else {
+        bool ok = await _login(username, password);
+        if (ok) {
+          reconnect++;
+        } else {
+          fail++;
+        }
+      }
+
+      await _saveCounters(normal, reconnect, fail);
+    } catch (e) {
+      // 捕获异常，防止后台任务崩溃
+      print('Background task error: $e');
+    }
   });
 }
 
@@ -96,6 +102,15 @@ Future<void> _initBackgroundService() async {
       description: '保持校园网连接的服务', // description
       importance: Importance.low, // 重要性
     );
+
+    // 添加这行代码：创建通知渠道
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
 
     // 更新Android配置
     await service.configure(
@@ -241,25 +256,40 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     // 启动 UI 定时器的代码保持不变
     _uiTimer?.cancel();
     _uiTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      final normal = prefs.getInt('normal_count') ?? 0;
-      final reconnect = prefs.getInt('reconnect_count') ?? 0;
-      final fail = prefs.getInt('fail_count') ?? 0;
+      try {
+        final normal = prefs.getInt('normal_count') ?? 0;
+        final reconnect = prefs.getInt('reconnect_count') ?? 0;
+        final fail = prefs.getInt('fail_count') ?? 0;
 
-      String newStatus;
-      if (normal > 0) {
-        newStatus = '网络正常（$normal 次）';
-      } else if (reconnect > 0) {
-        newStatus = '重连成功（$reconnect 次）';
-      } else if (fail > 0) {
-        newStatus = '重连失败（$fail 次）';
-      } else {
-        newStatus = '前台任务运行中...';
-      }
+        String newStatus;
+        if (normal > 0) {
+          newStatus = '网络正常（$normal 次）';
+        } else if (reconnect > 0) {
+          newStatus = '重连成功（$reconnect 次）';
+        } else if (fail > 0) {
+          newStatus = '重连失败（$fail 次）';
+        } else {
+          newStatus = '前台任务运行中...';
+        }
 
-      if (newStatus != status) {
-        setState(() => status = newStatus);
+        if (newStatus != status) {
+          setState(() => status = newStatus);
+        }
+      } catch (e) {
+        print('UI timer error: $e');
       }
     });
+  }
+
+  // 改进停止方法
+  Future<void> _stopService() async {
+    final service = FlutterBackgroundService();
+    if (Platform.isAndroid) {
+      service.invoke("stopService");
+    }
+    _uiTimer?.cancel();
+    _uiTimer = null;
+    setState(() => status = '已停止');
   }
 
   @override
