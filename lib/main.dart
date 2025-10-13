@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,10 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 // 前台任务
-// 替换原来的 backgroundTask 函数部分内容如下：
-
-Future<bool> backgroundTask(ServiceInstance service) async {
-  Timer.periodic(Duration(seconds: 3), (_) async {
+Future<void> backgroundTask(ServiceInstance service) async {
+  // 使用 Timer.periodic 并保存 timer 引用以便后续取消
+  Timer? timer;
+  timer = Timer.periodic(Duration(seconds: 3), (_) async {
     final prefs = await SharedPreferences.getInstance();
     final username = prefs.getString('username') ?? '';
     final password = prefs.getString('password') ?? '';
@@ -34,15 +35,18 @@ Future<bool> backgroundTask(ServiceInstance service) async {
     await _saveCounters(normal, reconnect, fail);
   });
 
-  // 表示后台任务继续运行
-  return true;
+  // 监听服务销毁事件
+  service.on('stopService').listen((event) {
+    timer?.cancel();
+    timer = null;
+    service.stopSelf();
+  });
 }
 
 @override
 Future<void> onExit(DateTime timestamp) async {}
 
 @override
-Future<void> get onDestroy async {}
 Future<bool> _isInternetOk() async {
   try {
     final resp = await http.get(
@@ -83,21 +87,20 @@ Future<void> _saveCounters(int normal, int reconnect, int fail) async {
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
 
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: backgroundTask,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'autowifi_channel',
-      initialNotificationTitle: 'Auto-WIFI',
-      initialNotificationContent: '保持校园网连接',
-      foregroundServiceTypes: [AndroidForegroundType.location],
-    ),
-    iosConfiguration: IosConfiguration(
-      onForeground: backgroundTask,
-      onBackground: backgroundTask,
-    ),
-  );
+  if (Platform.isAndroid) {
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: backgroundTask,
+        autoStart: false,
+        isForegroundMode: true,
+        notificationChannelId: 'autowifi_channel',
+        initialNotificationTitle: 'Auto-WIFI',
+        initialNotificationContent: '保持校园网连接',
+        foregroundServiceTypes: [AndroidForegroundType.location],
+      ),
+      iosConfiguration: IosConfiguration(),
+    );
+  }
 }
 
 // 主程序
@@ -131,7 +134,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   String username = '';
   String password = '';
   bool isWin = true;
-  late Timer? _uiTimer;
+  Timer? _uiTimer;
   String status = '准备就绪';
 
   @override
@@ -221,13 +224,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     if (!configured) return;
 
     final service = FlutterBackgroundService();
-
-    // 如果服务已在运行则重启
-    if (await service.isRunning()) {
-      service.invoke("stop");
+    if (Platform.isAndroid) {
+      await service.startService();
     }
-
-    await service.startService();
 
     // 启动 UI 定时器的代码保持不变
     _uiTimer?.cancel();
@@ -256,6 +255,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   void dispose() {
     _uiTimer?.cancel();
+    _uiTimer = null;
     super.dispose();
   }
 
@@ -287,10 +287,11 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 ElevatedButton(
                   onPressed: () async {
                     final service = FlutterBackgroundService();
-                    if (await service.isRunning()) {
-                      service.invoke("stop");
+                    if (Platform.isAndroid) {
+                      service.invoke("stopService");
                     }
                     _uiTimer?.cancel();
+                    _uiTimer = null;
                     setState(() => status = '已停止');
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
