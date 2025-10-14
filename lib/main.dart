@@ -440,12 +440,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   child: const Text('测试网络'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    final service = FlutterBackgroundService();
-                    service.invoke('stopService');
-                    _uiTimer?.cancel();
-                    setState(() => status = '已停止');
-                  },
+                  onPressed: _stopService,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   child: const Text('停止'),
                 ),
