@@ -86,15 +86,6 @@ Future<void> _saveCounters(int normal, int reconnect, int fail) async {
 // 服务初始化
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
-    // 添加这行代码：创建通知渠道
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-
     // 更新Android配置
     await service.configure(
       androidConfiguration: AndroidConfiguration(
