@@ -65,14 +65,12 @@ Future<bool> _isInternetOk() async {
 
 Future<bool> _login(String username, String password) async {
   try {
-    String url =
-        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=${Uri.encodeComponent(username)}&upass=${Uri.encodeComponent(password)}&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-    final resp = await http.get(Uri.parse(url));
-    if (resp.statusCode == 200) {
-      // 检查响应体是否包含 result:1
-      return resp.body.contains('"result":1');
-    }
-    return false;
+    final client = http.Client();
+    final response = await client
+        .get(Uri.parse('http://192.168.110.100/...'))
+        .timeout(const Duration(seconds: 8)); // ← 关键！
+    client.close();
+    return response.statusCode == 200 && response.body.contains('"result":1');
   } catch (e) {
     return false;
   }
