@@ -8,57 +8,143 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 // 前台任务
+@pragma('vm:entry-point')
 Future<void> backgroundTask(ServiceInstance service) async {
-  Timer? timer;service.on('stopService').listen((_) {
+  print('后台任务已启动');
+  Timer? timer;
+  service.on('stopService').listen((_) {
+    print('收到停止服务指令');
     timer?.cancel();
     service.stopSelf();
   });
 
+  int normal = 0;
+  int reconnect = 0;
+  int fail = 0;
+
   timer = Timer.periodic(Duration(seconds: 3), (_) async {
+    print('执行后台任务循环...');
     try {
       final prefs = await SharedPreferences.getInstance();
       final username = prefs.getString('username') ?? '';
       final password = prefs.getString('password') ?? '';
-      if (username.isEmpty || password.isEmpty) return;
+      if (username.isEmpty || password.isEmpty) {
+        print('用户名或密码为空，跳过本次循环');
+        return;
+      }
 
-      bool netOk = await _isInternetOk();
-      int normal = prefs.getInt('normal_count') ?? 0;
-      int reconnect = prefs.getInt('reconnect_count') ?? 0;
-      int fail = prefs.getInt('fail_count') ?? 0;
+      // 使用后台任务专用的网络检测函数
+      bool netOk = await _backgroundIsInternetOk();
+      print('网络检测结果: $netOk');
 
       if (netOk) {
         normal++;
+        print('网络正常，计数器+1: ${normal}');
       } else {
-        bool ok = await _login(username, password);
+        // 使用后台任务专用的登录函数
+        bool ok = await _backgroundLogin(username, password);
+        print('登录结果: $ok');
         if (ok) {
           reconnect++;
+          print('重连成功，计数器+1: ${reconnect}');
         } else {
           fail++;
+          print('重连失败，计数器+1: ${fail}');
         }
       }
 
-      await _saveCounters(normal, reconnect, fail);
+      // 发送计数器状态到前台
+      service.invoke('updateCounters', {
+        'normal': normal,
+        'reconnect': reconnect,
+        'fail': fail,
+      });
+
+      print(
+        '计数器状态 - 正常:$normal 重连:$reconnect 失败:$fail',
+      );
     } catch (e) {
-      // 捕获异常，防止后台任务崩溃
       print('Background task error: $e');
     }
   });
 }
 
+// 为后台任务专门实现的网络检测函数
+@pragma('vm:entry-point')
+Future<bool> _backgroundIsInternetOk() async {
+  try {
+    print('开始网络检测...');
+    final client = http.Client();
+    final resp = await client.get(
+      Uri.parse('http://www.msftconnecttest.com/connecttest.txt'),
+      headers: {'Cache-Control': 'no-cache'},
+    );
+    client.close();
+
+    print('网络检测响应 - 状态码: ${resp.statusCode}');
+    print('网络检测响应 - 内容: "${resp.body}"');
+    print('期望内容: "Microsoft Connect Test"');
+    print(
+      '实际内容匹配: "${resp.body.trim()}" == "Microsoft Connect Test" is ${resp.body.trim() == 'Microsoft Connect Test'}',
+    );
+
+    bool result =
+        resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
+    print('网络检测最终结果: $result');
+    return result;
+  } catch (e) {
+    print('网络检测异常: $e');
+    return false;
+  }
+}
+
+// 为后台任务专门实现的登录函数
+@pragma('vm:entry-point')
+Future<bool> _backgroundLogin(String username, String password) async {
+  try {
+    print('开始登录... 用户名: $username');
+    final client = http.Client();
+    final response = await client
+        .get(Uri.parse('http://192.168.110.100/...'))
+        .timeout(const Duration(seconds: 8));
+    client.close();
+
+    print('登录响应 - 状态码: ${response.statusCode}');
+    print('登录响应内容包含result: ${response.body.contains('"result":1')}');
+
+    bool result =
+        response.statusCode == 200 && response.body.contains('"result":1');
+    print('登录结果: $result');
+    return result;
+  } catch (e) {
+    print('登录异常: $e');
+    return false;
+  }
+}
+
 @override
 Future<void> onExit(DateTime timestamp) async {}
 
-@override
 Future<bool> _isInternetOk() async {
   try {
+    print('开始网络检测...');
     final resp = await http.get(
       Uri.parse('http://www.msftconnecttest.com/connecttest.txt'),
       headers: {'Cache-Control': 'no-cache'},
     );
-    // 必须同时满足：状态码 200 + 响应体为 "Microsoft Connect Test"
-    return resp.statusCode == 200 &&
-        resp.body.trim() == 'Microsoft Connect Test';
+    print('网络检测响应 - 状态码: ${resp.statusCode}');
+    print('网络检测响应 - 内容: "${resp.body}"');
+    print('期望内容: "Microsoft Connect Test"');
+    print(
+      '实际内容匹配: "${resp.body.trim()}" == "Microsoft Connect Test" is ${resp.body.trim() == 'Microsoft Connect Test'}',
+    );
+
+    bool result =
+        resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
+    print('网络检测最终结果: $result');
+    return result;
   } catch (e) {
+    print('网络检测异常: $e');
     return false;
   }
 }
@@ -76,30 +162,52 @@ Future<bool> _login(String username, String password) async {
   }
 }
 
-Future<void> _saveCounters(int normal, int reconnect, int fail) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('normal_count', normal);
-  await prefs.setInt('reconnect_count', reconnect);
-  await prefs.setInt('fail_count', fail);
-}
-
 // 服务初始化
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
-    // 更新Android配置
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: backgroundTask,
-        autoStart: false,
-        isForegroundMode: true,
-        notificationChannelId: 'autowifi_channel',
-        initialNotificationTitle: 'Auto-WIFI',
-        initialNotificationContent: '保持校园网连接',
-        foregroundServiceTypes: [AndroidForegroundType.dataSync],
-      ),
-      iosConfiguration: IosConfiguration(),
+
+  // 配置 Android 通知渠道
+  if (Platform.isAndroid) {
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    // 创建通知渠道 (Android 8.0+)
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'autowifi_channel', // id
+      'Auto WIFI Service', // title
+      description: '用于保持校园网连接的后台服务', // description
+      importance: Importance.low,
     );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
   }
+
+  // 正确配置服务
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: backgroundTask,
+      autoStart: false,
+      isForegroundMode: true,
+      notificationChannelId: 'autowifi_channel',
+      initialNotificationTitle: 'Auto-WIFI',
+      initialNotificationContent: '保持校园网连接',
+      foregroundServiceTypes: [AndroidForegroundType.dataSync],
+    ),
+    iosConfiguration: IosConfiguration(),
+  );
+}
 
 // 主程序
 void main() {
@@ -218,29 +326,39 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     );
   }
 
+  final ValueNotifier<Map<String, int>> _countersNotifier = ValueNotifier({
+    'normal': 0,
+    'reconnect': 0,
+    'fail': 0,
+  });
+
   void _startLoop() async {
-    if (!configured) return;
+    print('检查配置状态: configured=$configured');
+    if (!configured) {
+      print('未配置账号，无法启动服务');
+      return;
+    }
+    print('账号信息 - 用户名: $username, 密码: ${password.isNotEmpty ? "已设置" : "未设置"}');
 
     final service = FlutterBackgroundService();
-    if (Platform.isAndroid) {
-      await service.startService();
-    }
 
-    // 启动 UI 定时器的代码保持不变
-    _uiTimer?.cancel();
-    _uiTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      try {
-        final normal = prefs.getInt('normal_count') ?? 0;
-        final reconnect = prefs.getInt('reconnect_count') ?? 0;
-        final fail = prefs.getInt('fail_count') ?? 0;
+    // 监听后台计数器更新
+    service.on('updateCounters').listen((data) {
+      if (data != null && data is Map) {
+        _countersNotifier.value = {
+          'normal': data['normal'] as int? ?? 0,
+          'reconnect': data['reconnect'] as int? ?? 0,
+          'fail': data['fail'] as int? ?? 0,
+        };
 
+        // 更新状态显示
         String newStatus;
-        if (normal > 0) {
-          newStatus = '网络正常（$normal 次）';
-        } else if (reconnect > 0) {
-          newStatus = '重连成功（$reconnect 次）';
-        } else if (fail > 0) {
-          newStatus = '重连失败（$fail 次）';
+        if ((data['normal'] as int? ?? 0) > 0) {
+          newStatus = '网络正常（${data['normal']} 次）';
+        } else if ((data['reconnect'] as int? ?? 0) > 0) {
+          newStatus = '重连成功（${data['reconnect']} 次）';
+        } else if ((data['fail'] as int? ?? 0) > 0) {
+          newStatus = '重连失败（${data['fail']} 次）';
         } else {
           newStatus = '前台任务运行中...';
         }
@@ -248,10 +366,17 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         if (newStatus != status) {
           setState(() => status = newStatus);
         }
-      } catch (e) {
-        print('UI timer error: $e');
       }
     });
+
+    if (Platform.isAndroid) {
+      print('尝试启动后台服务...');
+      await service.startService();
+      print('后台服务启动命令已发送');
+    }
+
+    // 重置本地计数器显示
+    _countersNotifier.value = {'normal': 0, 'reconnect': 0, 'fail': 0};
   }
 
   // 改进停止方法
@@ -269,6 +394,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void dispose() {
     _uiTimer?.cancel();
     _uiTimer = null;
+    _countersNotifier.dispose();
     super.dispose();
   }
 
@@ -295,22 +421,68 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 ),
                 ElevatedButton(
                   onPressed: !configured ? null : _startLoop,
-                  child: const Text('开始自动认证'),
+                  child: const Text('开始任务'),
                 ),
                 ElevatedButton(
-onPressed: () {
-  final service = FlutterBackgroundService();
-  service.invoke('stopService'); // 与后台监听一致
-  _uiTimer?.cancel();
-  setState(() => status = '已停止');
-},
+                  onPressed: () async {
+                    print('手动测试网络检测...');
+                    bool result = await _isInternetOk();
+                    print('手动测试结果: $result');
+
+                    // 同时检查账号状态
+                    final prefs = await SharedPreferences.getInstance();
+                    final username = prefs.getString('username') ?? '';
+                    final password = prefs.getString('password') ?? '';
+                    print(
+                      '当前保存的账号 - 用户名: $username, 密码: ${password.isNotEmpty ? "已设置" : "未设置"}',
+                    );
+                  },
+                  child: const Text('测试网络'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final service = FlutterBackgroundService();
+                    service.invoke('stopService');
+                    _uiTimer?.cancel();
+                    setState(() => status = '已停止');
+                  },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   child: const Text('停止'),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            Text('状态: $status', style: const TextStyle(fontSize: 16)),
+
+            // 修改这部分来更好地显示计数器状态
+            Text(
+              '运行状态: $status',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+
+            // 单独显示计数器
+            ValueListenableBuilder<Map<String, int>>(
+              valueListenable: _countersNotifier,
+              builder: (context, counters, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '网络正常: ${counters['normal']} 次', // 使用 counters 而不是 CounterManager()
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Text(
+                      '重连成功: ${counters['reconnect']} 次', // 使用 counters 而不是 CounterManager()
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Text(
+                      '重连失败: ${counters['fail']} 次', // 使用 counters 而不是 CounterManager()
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
