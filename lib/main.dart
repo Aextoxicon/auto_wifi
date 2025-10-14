@@ -9,14 +9,9 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 
 // 前台任务
 Future<void> backgroundTask(ServiceInstance service) async {
-  // 使用 Timer.periodic 并保存 timer 引用以便后续取消
-  Timer? timer;
-
-  // 监听服务销毁事件 - 放在timer创建之前
-  service.on('stopService').listen((event) {
+  Timer? timer;service.on('stopService').listen((_) {
     timer?.cancel();
-    timer = null;
-    service.stopSelf(); // 确保服务停止
+    service.stopSelf();
   });
 
   timer = Timer.periodic(Duration(seconds: 3), (_) async {
