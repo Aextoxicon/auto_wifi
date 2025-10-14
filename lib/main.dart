@@ -304,7 +304,7 @@ onPressed: () {
   service.invoke('stopService'); // 与后台监听一致
   _uiTimer?.cancel();
   setState(() => status = '已停止');
-}
+},
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   child: const Text('停止'),
                 ),
