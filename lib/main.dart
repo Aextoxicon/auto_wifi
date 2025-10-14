@@ -93,16 +93,6 @@ Future<void> _saveCounters(int normal, int reconnect, int fail) async {
 // 服务初始化
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
-
-  if (Platform.isAndroid) {
-    // 创建通知渠道（Android 8.0+必需）
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autowifi_channel', // id
-      'Auto-WIFI Service', // title
-      description: '保持校园网连接的服务', // description
-      importance: Importance.low, // 重要性
-    );
-
     // 添加这行代码：创建通知渠道
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
