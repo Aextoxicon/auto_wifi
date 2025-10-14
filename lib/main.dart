@@ -68,7 +68,7 @@ Future<bool> _login(String username, String password) async {
     final client = http.Client();
     final response = await client
         .get(Uri.parse('http://192.168.110.100/...'))
-        .timeout(const Duration(seconds: 8)); // ← 关键！
+        .timeout(const Duration(seconds: 8));
     client.close();
     return response.statusCode == 200 && response.body.contains('"result":1');
   } catch (e) {
@@ -100,7 +100,6 @@ Future<void> _initBackgroundService() async {
       iosConfiguration: IosConfiguration(),
     );
   }
-}
 
 // 主程序
 void main() {
