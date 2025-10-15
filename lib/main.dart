@@ -130,8 +130,9 @@ Future<bool> _backgroundLogin(String username, String password) async {
     client.close();
 
     print('登录响应 - 状态码: ${response.statusCode}');
-    bool result = response.statusCode == 200 && 
-                  response.body.contains('成功') || response.body.contains('"result":1'); 
+    // 在 _backgroundLogin 函数中
+// 使用括号确保 statusCode == 200 必须成立
+bool result = response.statusCode == 200 && (response.body.contains('成功') || response.body.contains('"result":1'));
 
     print('登录结果: $result');
     return result;
