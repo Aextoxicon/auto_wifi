@@ -25,8 +25,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
   int reconnect = 0;
   int fail = 0;
 
-  // 优化：将轮询周期从 3 秒改为 30 秒，降低电量消耗
-  timer = Timer.periodic(Duration(seconds: 30), (_) async {
+  // 优化：将轮询周期从 3 秒改为 5 秒
+  timer = Timer.periodic(Duration(seconds: 5), (_) async {
     print('执行后台任务循环...');
     try {
       // 每次循环读取最新的账号信息
