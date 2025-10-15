@@ -202,7 +202,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
         }
 
         logManager.logDebug('后台任务 - 开始网络检测');
-        bool netOk = await _backgroundIsInternetOk();
+        bool netOk = false;//await _backgroundIsInternetOk();
         logManager.logDebug('后台任务 - 网络检测完成: $netOk');
 
         bool ok = false;
