@@ -20,15 +20,6 @@ jobs:
           flutter-version: '3.35.4'
           cache: true
 
-      - name: 缓存 Flutter 依赖 (Windows)
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.pub-cache }} 
-          key: ${{ runner.os }}-flutter-${{ steps.setup-flutter.outputs.flutter-version }}-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-${{ steps.setup-flutter.outputs.flutter-version }}-
-            ${{ runner.os }}-flutter-
-
       - name: install dep
         run: flutter pub get;flutter pub run flutter_launcher_icons
 
