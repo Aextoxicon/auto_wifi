@@ -18,14 +18,18 @@ Future<void> backgroundTask(ServiceInstance service) async {
     service.stopSelf();
   });
 
+  // 在任务启动时就获取 SharedPreferences 实例，提高效率
+  final prefs = await SharedPreferences.getInstance();
+
   int normal = 0;
   int reconnect = 0;
   int fail = 0;
 
-  timer = Timer.periodic(Duration(seconds: 3), (_) async {
+  // 优化：将轮询周期从 3 秒改为 30 秒，降低电量消耗
+  timer = Timer.periodic(Duration(seconds: 30), (_) async {
     print('执行后台任务循环...');
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // 每次循环读取最新的账号信息
       final username = prefs.getString('username') ?? '';
       final password = prefs.getString('password') ?? '';
       if (username.isEmpty || password.isEmpty) {
@@ -104,13 +108,14 @@ Future<bool> _backgroundLogin(String username, String password) async {
   try {
     print('开始登录... 用户名: $username');
 
+    // 注意：这里仍然使用明文密码，如果 Drcom 需要加密，认证将失败。
     final loginUri = Uri.http(
       '192.168.110.100',
       '/drcom/login',
       {
         'callback': 'dr1003',
         'DDDDD': username,
-        'upass': password,
+        'upass': password, // 警告：此处应为加密后的密码
         '0MKKey': '123456',   // 固定参数
         'R1': '0',            // 固定参数
         'R3': '0',            // 固定参数
@@ -130,9 +135,11 @@ Future<bool> _backgroundLogin(String username, String password) async {
     client.close();
 
     print('登录响应 - 状态码: ${response.statusCode}');
-    // 在 _backgroundLogin 函数中
-// 使用括号确保 statusCode == 200 必须成立
-bool result = response.statusCode == 200 && (response.body.contains('成功') || response.body.contains('"result":1'));
+    
+    // **>> 关键修复：修正逻辑运算符优先级 <<**
+    // 确保 statusCode == 200 必须成立
+    bool result = response.statusCode == 200 && 
+                  (response.body.contains('成功') || response.body.contains('"result":1')); 
 
     print('登录结果: $result');
     return result;
@@ -147,6 +154,7 @@ bool result = response.statusCode == 200 && (response.body.contains('成功') ||
 @override
 Future<void> onExit(DateTime timestamp) async {}
 
+// 前台网络检测函数（用于测试按钮）
 Future<bool> _isInternetOk() async {
   try {
     print('开始网络检测...');
@@ -167,19 +175,6 @@ Future<bool> _isInternetOk() async {
     return result;
   } catch (e) {
     print('网络检测异常: $e');
-    return false;
-  }
-}
-
-Future<bool> _login(String username, String password) async {
-  try {
-    final client = http.Client();
-    final response = await client
-        .get(Uri.parse('http://192.168.110.100/...'))
-        .timeout(const Duration(seconds: 8));
-    client.close();
-    return response.statusCode == 200 && response.body.contains('"result":1');
-  } catch (e) {
     return false;
   }
 }
@@ -265,10 +260,46 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   Timer? _uiTimer;
   String status = '准备就绪';
 
+  final ValueNotifier<Map<String, int>> _countersNotifier = ValueNotifier({
+    'normal': 0,
+    'reconnect': 0,
+    'fail': 0,
+  });
+  
+  // **>> 关键修复：在 initState 中设置监听器，避免冗余 <<**
   @override
   void initState() {
     super.initState();
     _initPrefs();
+    
+    // 设置一次后台计数器更新的监听器
+    final service = FlutterBackgroundService();
+    service.on('updateCounters').listen((data) {
+      if (data != null && data is Map) {
+        _countersNotifier.value = {
+          'normal': data['normal'] as int? ?? 0,
+          'reconnect': data['reconnect'] as int? ?? 0,
+          'fail': data['fail'] as int? ?? 0,
+        };
+
+        // 更新状态显示
+        String newStatus;
+        if ((data['normal'] as int? ?? 0) > 0) {
+          newStatus = '网络正常（${data['normal']} 次）';
+        } else if ((data['reconnect'] as int? ?? 0) > 0) {
+          newStatus = '重连成功（${data['reconnect']} 次）';
+        } else if ((data['fail'] as int? ?? 0) > 0) {
+          newStatus = '重连失败（${data['fail']} 次）';
+        } else {
+          newStatus = '前台任务运行中...';
+        }
+
+        if (newStatus != status) {
+          // 使用 setState 更新前台 UI
+          setState(() => status = newStatus);
+        }
+      }
+    });
   }
 
   Future<void> _initPrefs() async {
@@ -348,12 +379,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     );
   }
 
-  final ValueNotifier<Map<String, int>> _countersNotifier = ValueNotifier({
-    'normal': 0,
-    'reconnect': 0,
-    'fail': 0,
-  });
-
   void _startLoop() async {
     print('检查配置状态: configured=$configured');
     if (!configured) {
@@ -364,37 +389,22 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
 
     final service = FlutterBackgroundService();
 
-    // 监听后台计数器更新
-    service.on('updateCounters').listen((data) {
-      if (data != null && data is Map) {
-        _countersNotifier.value = {
-          'normal': data['normal'] as int? ?? 0,
-          'reconnect': data['reconnect'] as int? ?? 0,
-          'fail': data['fail'] as int? ?? 0,
-        };
-
-        // 更新状态显示
-        String newStatus;
-        if ((data['normal'] as int? ?? 0) > 0) {
-          newStatus = '网络正常（${data['normal']} 次）';
-        } else if ((data['reconnect'] as int? ?? 0) > 0) {
-          newStatus = '重连成功（${data['reconnect']} 次）';
-        } else if ((data['fail'] as int? ?? 0) > 0) {
-          newStatus = '重连失败（${data['fail']} 次）';
-        } else {
-          newStatus = '前台任务运行中...';
-        }
-
-        if (newStatus != status) {
-          setState(() => status = newStatus);
-        }
-      }
-    });
-
+    // **>> 移除：不再在这里设置监听器，已移到 initState <<**
+    
     if (Platform.isAndroid) {
       print('尝试启动后台服务...');
       await service.startService();
       print('后台服务启动命令已发送');
+      
+      // **>> 新增：启动成功后给用户提示 <<**
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('后台服务已启动。如果长时间未运行，请检查应用的后台权限设置。'),
+                duration: Duration(seconds: 5),
+            ),
+        );
+      }
     }
 
     // 重置本地计数器显示
@@ -405,7 +415,8 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   Future<void> _stopService() async {
     final service = FlutterBackgroundService();
     if (Platform.isAndroid) {
-      service.invoke("stopService");
+      // 发送指令停止后台任务的 Timer 和服务本身
+      service.invoke("stopService"); 
     }
     _uiTimer?.cancel();
     _uiTimer = null;
@@ -485,15 +496,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '网络正常: ${counters['normal']} 次', // 使用 counters 而不是 CounterManager()
+                      '网络正常: ${counters['normal']} 次', 
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连成功: ${counters['reconnect']} 次', // 使用 counters 而不是 CounterManager()
+                      '重连成功: ${counters['reconnect']} 次', 
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连失败: ${counters['fail']} 次', // 使用 counters 而不是 CounterManager()
+                      '重连失败: ${counters['fail']} 次', 
                       style: const TextStyle(fontSize: 14),
                     ),
                   ],
