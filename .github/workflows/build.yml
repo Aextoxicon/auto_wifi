@@ -24,7 +24,7 @@ jobs:
         run: flutter pub get;flutter pub run flutter_launcher_icons
 
       - name: build apk
-        run: flutter build apk --release
+        run: flutter build apk --debug
 
       - name: build windows
         run: flutter build windows
