@@ -21,7 +21,7 @@ jobs:
           cache: true
 
       - name: install dep
-        run: flutter pub get;flutter pub run flutter_launcher_icons
+        run: flutter clean;flutter pub get;flutter pub run flutter_launcher_icons
 
       - name: build apk
         run: flutter build apk --release
