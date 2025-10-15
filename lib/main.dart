@@ -103,7 +103,7 @@ Future<bool> _backgroundIsInternetOk() async {
 Future<bool> _backgroundLogin(String username, String password) async {
   try {
     print('开始登录... 用户名: $username');
-    
+
     final loginUri = Uri.http(
       '192.168.110.100',
       '/drcom/login',
