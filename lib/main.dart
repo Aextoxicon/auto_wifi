@@ -68,7 +68,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
       {
         'callback': 'dr1003',
         'DDDDD': username,
-        'upass': password, // 警告：此处应为加密后的密码
+        'upass': password,
         '0MKKey': '123456', 
         'R1': '0', 'R3': '0', 'R6': '0', 
         'para': '00', 'v6ip': '', 'v': '3196', 
@@ -270,10 +270,10 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
             width: double.maxFinite,
             height: 400, // 限制高度
             // 实时更新日志内容
-            child: ValueListenableBuilder(
-              valueListenable: LogManager(),
-              builder: (context, _, __) {
-                final logs = LogManager().logs.reversed.toList(); 
+            child: AnimatedBuilder(
+  animation: LogManager(),
+  builder: (context, child) {
+    final logs = LogManager().logs.reversed.toList(); 
                 return ListView.builder(
                   itemCount: logs.length,
                   reverse: true, // 保持滚动条在底部
