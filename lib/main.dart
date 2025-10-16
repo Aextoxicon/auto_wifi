@@ -422,7 +422,7 @@ void _checkServiceStatus() async {
 
       if (username.isNotEmpty && password.isNotEmpty) {
         // 如果配置存在，启动服务
-        await _startLoop();
+        _startLoop();
         setState(() => status = '服务已启动');
       } else {
         // 如果配置缺失，给出提示
