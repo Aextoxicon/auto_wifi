@@ -761,7 +761,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI (诊断版)')),
+      appBar: AppBar(title: const Text('Auto-WIFI (beta)')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
