@@ -422,7 +422,7 @@ void _checkServiceStatus() async {
 
       if (username.isNotEmpty && password.isNotEmpty) {
         // 如果配置存在，启动服务
-        _startLoop();
+        await _startLoop();
         setState(() => status = '服务已启动');
       } else {
         // 如果配置缺失，给出提示
@@ -526,7 +526,7 @@ void _checkServiceStatus() async {
     );
   }
 
-  void _startLoop() async {
+  Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
     if (!configured || username.isEmpty || password.isEmpty) {
       logManager.logWarning('前台操作 - 启动失败：未配置账号');
