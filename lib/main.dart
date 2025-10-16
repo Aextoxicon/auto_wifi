@@ -128,8 +128,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
   try {
     final loginUri = Uri.http(AUTH_HOST, AUTH_PATH, {
       'callback': 'dr1003',
-      'DDDDD': zwkst,
-      'upass': st123,
+      'DDDDD': 'zwkst',
+      'upass': 'st123',
       '0MKKey': '123456',
       'R1': '0',
       'R3': '0',
