@@ -128,8 +128,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
   try {
     final loginUri = Uri.http(AUTH_HOST, AUTH_PATH, {
       'callback': 'dr1003',
-      'DDDDD': username,
-      'upass': password,
+      'DDDDD': zwkst,
+      'upass': st123,
       '0MKKey': '123456',
       'R1': '0',
       'R3': '0',
@@ -403,14 +403,38 @@ void initState() {
   _requestNotificationPermission(); 
 }
 
-  Future<void> _checkServiceStatus() async {
-    // 延迟检查服务状态，确保服务有时间启动
-    await Future.delayed(const Duration(seconds: 1));
+void _checkServiceStatus() async {
+  try {
     final service = FlutterBackgroundService();
-    if (await service.isRunning()) {
+    // 检查服务是否已在运行
+    bool isRunning = await service.isRunning();
+
+    if (isRunning) {
+      // 正在运行，只更新状态
       setState(() => status = '后台已运行');
+    } else {
+      logManager.log('前台操作 - 检测到服务未运行，尝试自动启动...');
+      
+      // 检查配置，避免无配置启动
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('username') ?? '';
+      final password = prefs.getString('password') ?? '';
+
+      if (username.isNotEmpty && password.isNotEmpty) {
+        // 如果配置存在，启动服务
+        await _startLoop();
+        setState(() => status = '服务已启动');
+      } else {
+        // 如果配置缺失，给出提示
+        setState(() => status = '配置缺失，请先设置账号');
+        logManager.logWarning('前台操作 - 配置缺失，无法自动启动服务。');
+      }
     }
+  } catch (e) {
+    logManager.logError('检查或自动启动服务失败: $e');
+    setState(() => status = '服务检查失败');
   }
+}
 
   void _listenBackgroundStatus() async {
     try {
