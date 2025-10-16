@@ -126,35 +126,39 @@ Future<bool> _backgroundIsInternetOk() async {
 Future<bool> _backgroundLogin(String username, String password) async {
   logManager.log('后台认证 - 尝试登录: $username');
   try {
-    final loginUri = Uri.http(AUTH_HOST, AUTH_PATH, {
-      'callback': 'dr1003',
-      'DDDDD': 'zwkst',
-      'upass': 'st123',
-      '0MKKey': '123456',
-      'R1': '0',
-      'R3': '0',
-      'R6': '0',
-      'para': '00',
-      'v6ip': '',
-      'v': '3196',
-    });
-    final response = await http
-        .get(loginUri)
-        .timeout(const Duration(seconds: 8));
+    // 手动构造 URL
+    String url = 'http://$AUTH_HOST$AUTH_PATH?'
+        'callback=dr1003&'
+        'DDDDD=${Uri.encodeComponent(username)}&'
+        'upass=${Uri.encodeComponent(password)}&'
+        '0MKKey=123456&'
+        'R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
 
-    final result =
-        response.statusCode == 200 &&
-        (response.body.contains('成功') || response.body.contains('"result":1'));
+    final loginUri = Uri.parse(url);
+    logManager.logDebug('后台认证 - 请求 URL: $loginUri');
+
+    final response = await http.get(
+      loginUri,
+      headers: {
+        'User-Agent': 'curl/7.88.1', // 模拟 curl
+        'Accept': '*/*',
+        'Connection': 'close',
+      },
+    ).timeout(const Duration(seconds: 8));
+
+    logManager.logDebug(
+      '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
+    );
+
+    final result = response.statusCode == 200 &&
+        (response.body.contains('"result":1') || 
+         response.body.contains('dr1003({"result":1}'));
 
     if (result) {
       logManager.log('后台认证 - 登录成功');
     } else {
-      logManager.logWarning('后台认证 - 登录失败，状态码: ${response.statusCode}');
+      logManager.logWarning('后台认证 - 登录失败');
     }
-
-    logManager.logDebug(
-      '后台认证 - 登录响应详情: ${response.statusCode}, 内容长度: ${response.body.length}',
-    );
     return result;
   } catch (e, stack) {
     logManager.logError('后台认证 - 登录异常: $e', stack);
@@ -210,8 +214,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
         }
 
         logManager.logDebug('后台任务 - 开始网络检测');
-        // ❗ 强制设置为 false，确保每次都触发登录，用于调试
-        bool netOk = false;//await _backgroundIsInternetOk();
+        
+        bool netOk = await _backgroundIsInternetOk();
         logManager.logDebug('后台任务 - 网络检测完成: $netOk');
 
         bool ok = false;
@@ -238,7 +242,6 @@ Future<void> backgroundTask(ServiceInstance service) async {
           'reconnect': reconnect,
           'fail': fail,
           'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
-          // ❗ 新增：将最新的日志消息发送给前台
           'latestLog': logManager.getLatestLog(), 
         });
       } catch (e, stack) {
