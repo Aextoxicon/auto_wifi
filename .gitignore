@@ -13,7 +13,8 @@
 .packages
 build
 build/*
-/windows/flutter/ephemeral/
+windows/flutter/ephemeral/
+current_logs.txt
 
 # IDEs and OS files
 .DS_Store
