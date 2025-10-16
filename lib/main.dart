@@ -383,14 +383,25 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _initPrefs();
-    _listenBackgroundStatus();
-    _listenBackgroundLogs();
-    _checkServiceStatus();
+  Future<void> _requestNotificationPermission() async {
+  if (Platform.isAndroid) {
+    // 检查并请求通知权限 （Android 13+)
+    final status = await Permission.notification.request();
+    if (status.isDenied) {
+      logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
+    }
   }
+}
+
+@override
+void initState() {
+  super.initState();
+  _initPrefs();
+  _listenBackgroundStatus();
+  _listenBackgroundLogs();
+  _checkServiceStatus();
+  _requestNotificationPermission(); 
+}
 
   Future<void> _checkServiceStatus() async {
     // 延迟检查服务状态，确保服务有时间启动
