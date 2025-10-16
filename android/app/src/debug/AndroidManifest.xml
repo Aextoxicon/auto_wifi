@@ -17,6 +17,10 @@
         android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true">
 
+        <meta-data
+            android:name="id.flutter.flutter_background_service.notification_icon"
+            android:resource="@drawable/launch_background" />    
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -25,18 +29,8 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-
-            <meta-data
-                android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
 
-        <!-- Flutter Background Service -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="dataSync"

@@ -310,6 +310,7 @@ Future<void> _initBackgroundService() async {
       notificationChannelId: CHANNEL_ID,
       initialNotificationTitle: 'Auto-WIFI',
       initialNotificationContent: '保持校园网连接',
+      
       foregroundServiceTypes: [AndroidForegroundType.dataSync],
     ),
     iosConfiguration: IosConfiguration(),
