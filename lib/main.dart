@@ -333,6 +333,8 @@ Future<void> _initBackgroundService() async {
       'Auto WIFI Service',
       description: '用于保持校园网连接的后台服务',
       importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
     );
 
     await flutterLocalNotificationsPlugin

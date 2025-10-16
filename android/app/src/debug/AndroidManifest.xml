@@ -41,8 +41,7 @@
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="dataSync"
             android:enabled="true"
-            android:exported="false"
-            tools:replace="android:exported"
+            android:exported="true"
             android:permission="android.permission.FOREGROUND_SERVICE" />
 
         <meta-data
