@@ -28,6 +28,11 @@ class LogManager extends ChangeNotifier {
   static const int _maxLogs = 100;
 
   List<String> get logs => List.unmodifiable(_logs);
+  
+  String getLatestLog() {
+    if (_logs.isEmpty) return '';
+    return _logs.last;
+  }
 
   // 标准日志方法
   void log(String message) {
@@ -197,11 +202,15 @@ Future<void> backgroundTask(ServiceInstance service) async {
 
         if (username.isEmpty || password.isEmpty) {
           logManager.logWarning('后台任务 - 配置为空，中止循环');
-          service.invoke('updateCounters', {'status': '配置缺失'});
+          service.invoke('updateCounters', {
+            'status': '配置缺失',
+            'latestLog': logManager.getLatestLog(), // 确保同步最新日志
+          });
           return;
         }
 
         logManager.logDebug('后台任务 - 开始网络检测');
+        // ❗ 强制设置为 false，确保每次都触发登录，用于调试
         bool netOk = false;//await _backgroundIsInternetOk();
         logManager.logDebug('后台任务 - 网络检测完成: $netOk');
 
@@ -229,6 +238,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
           'reconnect': reconnect,
           'fail': fail,
           'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
+          // ❗ 新增：将最新的日志消息发送给前台
+          'latestLog': logManager.getLatestLog(), 
         });
       } catch (e, stack) {
         consecutiveErrors++;
@@ -239,16 +250,32 @@ Future<void> backgroundTask(ServiceInstance service) async {
 
         if (consecutiveErrors >= maxConsecutiveErrors) {
           logManager.logError('后台任务连续错误过多，自动停止服务');
-          service.invoke('updateCounters', {'status': '服务异常停止'});
+          service.invoke('updateCounters', {
+            'status': '服务异常停止',
+            'latestLog': logManager.getLatestLog(),
+          });
           timer?.cancel();
           service.stopSelf();
+        }
+        
+        // 即使发生异常，也尝试同步最新的错误日志
+        try {
+            service.invoke('updateCounters', {
+                'status': '任务错误',
+                'latestLog': logManager.getLatestLog(),
+            });
+        } catch (_) {
+            // 忽略同步失败的错误
         }
       }
     });
   } catch (e, stack) {
     logManager.logError('后台任务发生致命错误: $e', stack);
     try {
-      service.invoke('updateCounters', {'status': '服务崩溃'});
+      service.invoke('updateCounters', {
+        'status': '服务崩溃',
+        'latestLog': logManager.getLatestLog(),
+      });
     } catch (invokeError, invokeStack) {
       logManager.logError('调用 updateCounters 失败: $invokeError', invokeStack);
     }
@@ -400,6 +427,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 'reconnect': data['reconnect'] as int? ?? 0,
                 'fail': data['fail'] as int? ?? 0,
               };
+
+              final latestLog = data['latestLog'] as String?;
+              if (latestLog != null && latestLog.isNotEmpty) {
+                // 检查前台 LogManager 中是否已有这条日志（防止重复）
+                if (!logManager.logs.contains(latestLog)) {
+                   logManager._logs.add(latestLog);
+                   logManager.notifyListeners(); 
+                }
+              }
             }
           })
           .onError((error) {
