@@ -10,6 +10,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
 import 'package:android_intent_plus/android_intent_plus.dart';
+import 'package:android_power_manager/android_power_manager.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -406,9 +407,8 @@ logManager.logError('前台操作 - SharedPreferences 初始化失败: $e', stac
 }
 
 void openBatteryOptimizationSettings() {
-  // 使用当前 State 的 context（因为这是 State 类的方法）
   try {
-    final intent = AndroidIntent(
+    final intent = AndroidIntentPlus(
       action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
     );
     intent.launch();
@@ -455,7 +455,7 @@ void initState() {
 
 Future<void> _checkBatteryOptimization() async {
   if (Platform.isAndroid) {
-    final isIgnoring = await PowerManager.isIgnoringBatteryOptimizations();
+    final isIgnoring = await AndroidPowerManager.isIgnoringBatteryOptimizations();
     if (!isIgnoring) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showBatteryOptimizationDialog();
