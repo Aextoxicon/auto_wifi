@@ -378,7 +378,10 @@ String username = '';
 String password = '';
 String status = '准备就绪';
 
-bool isIgnoringBatteryOptimizations = await PowerManager.isIgnoringBatteryOptimizations(); if (!isIgnoringBatteryOptimizations) { showBatteryOptimizationDialog(); }
+bool isIgnoringBatteryOptimizations = PowerManager.isIgnoringBatteryOptimizations(); 
+if (!isIgnoringBatteryOptimizations) { 
+showBatteryOptimizationDialog(); 
+}
 
 final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
 'normal': 0,
