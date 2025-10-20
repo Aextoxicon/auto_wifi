@@ -541,7 +541,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 password = p;
                 configured = u.isNotEmpty;
               });
-              _forceStopAllServices()
+              _forceStopAllServices();
               Navigator.pop(ctx);
             },
             child: const Text('保存'),
