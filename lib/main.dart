@@ -378,11 +378,6 @@ String username = '';
 String password = '';
 String status = '准备就绪';
 
-bool isIgnoringBatteryOptimizations = PowerManager.isIgnoringBatteryOptimizations(); 
-if (!isIgnoringBatteryOptimizations) { 
-showBatteryOptimizationDialog(); 
-}
-
 final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
 'normal': 0,
 'reconnect': 0,
@@ -460,17 +455,11 @@ void initState() {
 
 Future<void> _checkBatteryOptimization() async {
   if (Platform.isAndroid) {
-    try {
-      final isIgnoring = await PowerManager.isIgnoringBatteryOptimizations();
-      if (!isIgnoring) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _showBatteryOptimizationDialog();
-          }
-        });
-      }
-    } catch (e) {
-      logManager.logWarning('检查电池优化状态失败: $e');
+    final isIgnoring = await PowerManager.isIgnoringBatteryOptimizations();
+    if (!isIgnoring) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showBatteryOptimizationDialog();
+      });
     }
   }
 }
