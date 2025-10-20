@@ -10,7 +10,6 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
 import 'package:android_intent_plus/android_intent_plus.dart';
-import 'package:android_power_manager/android_power_manager.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
