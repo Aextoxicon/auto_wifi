@@ -377,7 +377,7 @@ String username = '';
 String password = '';
 String status = '准备就绪';
 
-// 检测是否被电池优化（仅适用于标准 Android，华为可能返回不准） bool isIgnoringBatteryOptimizations = await PowerManager.isIgnoringBatteryOptimizations(); if (!isIgnoringBatteryOptimizations) { showBatteryOptimizationDialog(); }
+bool isIgnoringBatteryOptimizations = await PowerManager.isIgnoringBatteryOptimizations(); if (!isIgnoringBatteryOptimizations) { showBatteryOptimizationDialog(); }
 
 final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
 'normal': 0,
@@ -406,7 +406,7 @@ logManager.logError('前台操作 - SharedPreferences 初始化失败: $e', stac
 }
 }
 
-void openBatteryOptimizationSettings() { try { // 尝试打开系统电池优化设置 final intent = AndroidIntent( action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS', ); intent.launch(); } catch (e) { // 如果失败，提示用户手动操作 showDialog( context: context, builder: (ctx) => AlertDialog( title: Text('请手动关闭电池优化'), content: Text( '为确保后台服务正常运行，请前往：\n' '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”', ), actions: [ TextButton( onPressed: Navigator.of(ctx).pop, child: Text('我知道了'), ) ], ), ); } }
+void openBatteryOptimizationSettings() { try { final intent = AndroidIntent( action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS', ); intent.launch(); } catch (e) { showDialog( context: context, builder: (ctx) => AlertDialog( title: Text('请手动关闭电池优化'), content: Text( '为确保后台服务正常运行，请前往：\n' '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”', ), actions: [ TextButton( onPressed: Navigator.of(ctx).pop, child: Text('我知道了'), ) ], ), ); } }
 
 Future<void> _requestNotificationPermission() async {
 if (Platform.isAndroid) {
