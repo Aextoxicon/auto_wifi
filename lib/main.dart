@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
+import 'package:android_intent_plus/android_intent_plus.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -406,7 +407,32 @@ logManager.logError('前台操作 - SharedPreferences 初始化失败: $e', stac
 }
 }
 
-void openBatteryOptimizationSettings() { try { final intent = AndroidIntent( action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS', ); intent.launch(); } catch (e) { showDialog( context: context, builder: (ctx) => AlertDialog( title: Text('请手动关闭电池优化'), content: Text( '为确保后台服务正常运行，请前往：\n' '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”', ), actions: [ TextButton( onPressed: Navigator.of(ctx).pop, child: Text('我知道了'), ) ], ), ); } }
+void openBatteryOptimizationSettings() {
+  // 使用当前 State 的 context（因为这是 State 类的方法）
+  try {
+    final intent = AndroidIntent(
+      action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
+    );
+    intent.launch();
+  } catch (e) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('请手动关闭电池优化'),
+        content: const Text(
+          '为确保后台服务正常运行，请前往：\n'
+          '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 Future<void> _requestNotificationPermission() async {
 if (Platform.isAndroid) {
@@ -420,12 +446,56 @@ logManager.logWarning('未获得通知权限，可能影响后台服务运行。
 
 @override
 void initState() {
-super.initState();
-_initPrefs();
-_listenBackgroundStatus();
-_listenBackgroundLogs();
-_checkServiceStatus();
-_requestNotificationPermission();
+  super.initState();
+  _initPrefs();
+  _listenBackgroundStatus();
+  _listenBackgroundLogs();
+  _checkServiceStatus();
+  _requestNotificationPermission();
+  _checkBatteryOptimization();
+}
+
+Future<void> _checkBatteryOptimization() async {
+  if (Platform.isAndroid) {
+    try {
+      final isIgnoring = await PowerManager.isIgnoringBatteryOptimizations();
+      if (!isIgnoring) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showBatteryOptimizationDialog();
+          }
+        });
+      }
+    } catch (e) {
+      logManager.logWarning('检查电池优化状态失败: $e');
+    }
+  }
+}
+
+void _showBatteryOptimizationDialog() {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('请关闭电池优化'),
+      content: const Text(
+        '为确保后台服务正常运行，请前往：\n'
+        '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            openBatteryOptimizationSettings();
+          },
+          child: const Text('去设置'),
+        ),
+        TextButton(
+          onPressed: Navigator.of(ctx).pop,
+          child: const Text('稍后再说'),
+        ),
+      ],
+    ),
+  );
 }
 
 void _checkServiceStatus() async {
