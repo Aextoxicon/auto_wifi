@@ -150,7 +150,7 @@ Future<bool> _backgroundIsInternetOk() async {
     logManager.logDebug('后台认证 - 网络检测开始');
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(const Duration(seconds: 5));
+        .timeout(const Duration(seconds: 3));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
