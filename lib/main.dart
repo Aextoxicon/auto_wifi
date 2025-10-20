@@ -377,6 +377,8 @@ String username = '';
 String password = '';
 String status = '准备就绪';
 
+// 检测是否被电池优化（仅适用于标准 Android，华为可能返回不准） bool isIgnoringBatteryOptimizations = await PowerManager.isIgnoringBatteryOptimizations(); if (!isIgnoringBatteryOptimizations) { showBatteryOptimizationDialog(); }
+
 final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
 'normal': 0,
 'reconnect': 0,
