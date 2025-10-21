@@ -151,7 +151,7 @@ Future<bool> _backgroundIsInternetOk() async {
     logManager.logDebug('后台认证 - 网络检测开始');
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(const Duration(seconds: 3));
+        .timeout(const Duration(seconds: 2));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
@@ -473,8 +473,8 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       builder: (ctx) => AlertDialog(
         title: const Text('请关闭电池优化'),
         content: const Text(
-          '为确保后台服务正常运行，请前往：\n'
-          '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”',
+          '为确保后台服务正常运行，请前往:'
+          '电池优化→找到本应用→选择不优化',
         ),
         actions: [
           TextButton(
