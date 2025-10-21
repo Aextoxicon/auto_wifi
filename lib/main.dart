@@ -151,7 +151,7 @@ Future<bool> _backgroundIsInternetOk() async {
     logManager.logDebug('后台认证 - 网络检测开始');
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(const Duration(seconds: 2));
+        .timeout(const Duration(seconds: 1));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
@@ -207,8 +207,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int reconnect = 0;
     int fail = 0;
 
-    logManager.log('后台任务 - 启动定时检测 (5秒周期)');
-    timer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    logManager.log('后台任务 - 启动定时检测 (1秒周期)');
+    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
 
       try {
