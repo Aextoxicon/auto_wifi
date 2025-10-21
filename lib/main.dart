@@ -405,7 +405,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
-  void openBatteryOptimizationSettings() {
+  void _openBatteryOptimizationSettings() {
     try {
       final intent = AndroidIntent(
         action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
@@ -467,6 +467,26 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
+  void _showExitOptimizationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('关闭服务'),
+        content: const Text('在App详情页点击强行停止以停止服务'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _openAppSettings();
+            },
+            child: const Text('去设置'),
+          ),
+          TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
+        ],
+      ),
+    );
+  }
+
   void _showBatteryOptimizationDialog() {
     showDialog(
       context: context,
@@ -480,7 +500,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              openBatteryOptimizationSettings();
+              _openBatteryOptimizationSettings();
             },
             child: const Text('去设置'),
           ),
@@ -656,9 +676,21 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
-  Future<void> _forceStopAllServices() async {
-    logManager.log('前台操作 - 强制停止所有服务');
+  Future<void> _openAppSettings() async {
+    if (Platform.isAndroid) {
+      try {
+        final intent = AndroidIntent(
+          action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
+          data: 'package:com.example.auto_wifi',
+        );
+        await intent.launch();
+      } catch (e) {
+        logManager.logError('打开应用设置失败: $e');
+      }
+    }
+  }
 
+  Future<void> _forceStopAllServices() async {
     try {
       final service = FlutterBackgroundService();
 
@@ -689,17 +721,10 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         logManager.logWarning('清除通知失败: $e');
       }
 
-      // 更新状态
-      setState(() {
-        status = '已强制停止';
-      });
-
-      logManager.log('前台操作 - 所有服务已强制停止');
-
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('已强制停止所有服务')));
+        ).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
       }
     } catch (e, stack) {
       logManager.logError('强制停止服务时发生异常: $e', stack);
@@ -707,78 +732,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('强制停止服务失败: $e')));
-      }
-    }
-  }
-
-  Future<void> _exportLogs() async {
-    try {
-      final logs = logManager.logs;
-      if (logs.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('没有日志可导出')));
-        }
-        return;
-      }
-
-      if (Platform.isAndroid) {
-        // 注意：在较新的 Android 版本中，这个权限可能被忽略
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('未获得存储权限，无法导出日志')));
-          }
-          return;
-        }
-      }
-
-      // 构建日志内容
-      final logContent = logs.reversed.join('\n'); // 最新日志在前
-
-      // 创建文件名
-      final now = DateTime.now();
-      final fileName =
-          'autowifi_logs_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.txt';
-
-      // 请求存储权限并保存文件
-      if (Platform.isAndroid) {
-        final directory = Directory('/storage/emulated/0/Documents');
-        if (!await directory.exists()) {
-          await directory.create(recursive: true);
-        }
-
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsString(logContent);
-
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('日志已保存至: ${file.path}')));
-        }
-      } else {
-        // iOS 或其他平台使用临时目录
-        final directory = await getTemporaryDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsString(logContent);
-
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('日志已保存至: ${file.path}')));
-        }
-      }
-
-      logManager.log('日志已导出: $fileName');
-    } catch (e, stack) {
-      logManager.logError('导出日志失败: $e', stack);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('导出失败: $e')));
       }
     }
   }
@@ -863,19 +816,11 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
                   child: ElevatedButton(
-                    onPressed: _forceStopAllServices,
+                    onPressed: _showExitOptimizationDialog,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: const Color.fromARGB(255, 255, 74, 74),
                     ),
-                    child: const Text('停止APP'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.75,
-                  child: ElevatedButton(
-                    onPressed: _exportLogs,
-                    child: const Text('导出日志'),
+                    child: const Text('跳转详情页强行停止APP'),
                   ),
                 ),
                 const SizedBox(height: 8),
