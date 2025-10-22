@@ -8,8 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
-import 'package:path_provider/path_provider.dart';
 import "package:android_intent_plus/android_intent.dart";
+import 'dart:math' as math;
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -78,10 +78,14 @@ class LogManager extends ChangeNotifier {
 
   int _getLogLevel(String level) {
     switch (level) {
-      case 'error': return 2000;
-      case 'warning': return 1500;
-      case 'debug': return 500;
-      default: return 1000;
+      case 'error':
+        return 2000;
+      case 'warning':
+        return 1500;
+      case 'debug':
+        return 500;
+      default:
+        return 1000;
     }
   }
 }
@@ -90,6 +94,7 @@ class LogManager extends ChangeNotifier {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initBackgroundService();
+  await _requestNotificationPermission();
   runApp(const MyApp());
 }
 
@@ -103,6 +108,38 @@ class MyApp extends StatelessWidget {
       title: 'Auto-WIFI',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const DrcomAuthPage(),
+    );
+  }
+}
+
+class RadialExpansion extends StatelessWidget {
+  RadialExpansion({Key? key, required this.child, required this.heroTag})
+    : super(key: key);
+
+  final Widget child;
+  final Object heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return Hero(tag: heroTag, child: _buildRadialExpansion(context));
+  }
+
+  Widget _buildRadialExpansion(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final double size = screenSize.longestSide * 0.9;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: Center(
+          child: SizedBox(
+            width: size / math.sqrt2,
+            height: size / math.sqrt2,
+            child: ClipRect(child: child),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -172,15 +209,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
-  Future<void> _requestNotificationPermission() async {
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.request();
-      if (status.isDenied) {
-        logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -188,7 +216,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     _listenBackgroundStatus();
     _listenBackgroundLogs();
     _checkServiceStatus();
-    _requestNotificationPermission();
     _checkBatteryOptimization();
   }
 
@@ -206,32 +233,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       }
     }
   }
-
-  void _showExitOptimizationDialog() {
-  showDialog(
-    context: context,
-    builder: (ctx) => Hero(
-      tag: 'hero_exit_dialog',
-      child: Material(
-        type: MaterialType.transparency,
-        child: AlertDialog(
-          title: const Text('关闭服务'),
-          content: const Text('在App详情页点击强行停止以停止服务'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _openAppSettings();
-              },
-              child: const Text('去设置'),
-            ),
-            TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
   void _showBatteryOptimizationDialog() {
     showDialog(
@@ -293,82 +294,114 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       if (isRunning) {
         setState(() => status = '后台已运行');
       }
-      service.on('updateCounters').listen((data) {
-        if (data != null && data is Map) {
-          final newStatus = data['status'] as String? ?? '运行中';
-          if (status != newStatus) {
-            setState(() => status = newStatus);
-          }
-          _countersNotifier.value = {
-            'normal': data['normal'] as int? ?? 0,
-            'reconnect': data['reconnect'] as int? ?? 0,
-            'fail': data['fail'] as int? ?? 0,
-          };
-          final latestLog = data['latestLog'] as String?;
-          if (latestLog != null && latestLog.isNotEmpty) {
-            if (!logManager.logs.contains(latestLog)) {
-              logManager._logs.add(latestLog);
-              logManager.notifyListeners();
+      service
+          .on('updateCounters')
+          .listen((data) {
+            if (data != null && data is Map) {
+              final newStatus = data['status'] as String? ?? '运行中';
+              if (status != newStatus) {
+                setState(() => status = newStatus);
+              }
+              _countersNotifier.value = {
+                'normal': data['normal'] as int? ?? 0,
+                'reconnect': data['reconnect'] as int? ?? 0,
+                'fail': data['fail'] as int? ?? 0,
+              };
+              final latestLog = data['latestLog'] as String?;
+              if (latestLog != null && latestLog.isNotEmpty) {
+                if (!logManager.logs.contains(latestLog)) {
+                  logManager._logs.add(latestLog);
+                  logManager.notifyListeners();
+                }
+              }
             }
-          }
-        }
-      }).onError((error) {
-        logManager.log('监听后台状态时发生错误: $error');
-      });
+          })
+          .onError((error) {
+            logManager.log('监听后台状态时发生错误: $error');
+          });
     } catch (e) {
       logManager.log('初始化后台状态监听失败: $e');
     }
   }
 
   void _showConfigDialog() {
-  final userCtrl = TextEditingController(text: username);
-  final passCtrl = TextEditingController(text: password);
-  showDialog(
-    context: context,
-    builder: (ctx) => Hero(
-      tag: 'hero_config_dialog',
-      child: Material( // 必须是 Material 才能正确渲染 Dialog
-        type: MaterialType.transparency,
-        child: AlertDialog(
-          title: const Text('配置账号'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: userCtrl,
-                decoration: const InputDecoration(labelText: '用户名'),
+    final userCtrl = TextEditingController(text: username);
+    final passCtrl = TextEditingController(text: password);
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder:
+          (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+          ) {
+            return RadialExpansion(
+              heroTag: 'hero_config_dialog',
+              child: Material(
+                type: MaterialType.transparency,
+                child: AlertDialog(
+                  title: const Text('配置账号'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: userCtrl,
+                        decoration: const InputDecoration(labelText: '用户名'),
+                      ),
+                      TextField(
+                        controller: passCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: '密码'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: Navigator.of(context).pop,
+                      child: const Text('取消'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        final u = userCtrl.text.trim();
+                        final p = passCtrl.text.trim();
+                        prefs.setString('username', u);
+                        prefs.setString('password', p);
+                        setState(() {
+                          username = u;
+                          password = p;
+                          configured = u.isNotEmpty;
+                        });
+                        _forceStopAllServices();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('保存'),
+                    ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: passCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: '密码'),
+            );
+          },
+      transitionBuilder:
+          (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget child,
+          ) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
               ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
-            ElevatedButton(
-              onPressed: () {
-                final u = userCtrl.text.trim();
-                final p = passCtrl.text.trim();
-                prefs.setString('username', u);
-                prefs.setString('password', p);
-                setState(() {
-                  username = u;
-                  password = p;
-                  configured = u.isNotEmpty;
-                });
-                _forceStopAllServices();
-                Navigator.pop(ctx);
-              },
-              child: const Text('保存'),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+              child: child,
+            );
+          },
+    );
+  }
 
   Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
@@ -388,7 +421,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         if (mounted) {
           final message = started ? '后台服务启动命令已发送。' : '启动失败：系统拒绝。';
           logManager.log('前台操作 - $message');
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       }
       _countersNotifier.value = {'normal': 0, 'reconnect': 0, 'fail': 0};
@@ -396,6 +431,60 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       logManager.logError('前台操作 - 启动服务时发生异常: $e', stack);
       setState(() => status = '启动失败：发生异常');
     }
+  }
+
+  void _showExitOptimizationDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder:
+          (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+          ) {
+            return RadialExpansion(
+              heroTag: 'hero_exit_dialog',
+              child: Material(
+                type: MaterialType.transparency,
+                child: AlertDialog(
+                  title: const Text('关闭服务'),
+                  content: const Text('在App详情页点击强行停止以停止服务'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _openAppSettings();
+                      },
+                      child: const Text('去设置'),
+                    ),
+                    TextButton(
+                      onPressed: Navigator.of(context).pop,
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+      transitionBuilder:
+          (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget child,
+          ) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              ),
+              child: child,
+            );
+          },
+    );
   }
 
   Future<void> _openAppSettings() async {
@@ -424,12 +513,16 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         await plugin.cancelAll();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
       }
     } catch (e, stack) {
       logManager.logError('强制停止服务时发生异常: $e', stack);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('强制停止服务失败: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('强制停止服务失败: $e')));
       }
     }
   }
@@ -442,22 +535,30 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       final password = prefs.getString('password') ?? '';
       if (username.isEmpty || password.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先配置账号和密码')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请先配置账号和密码')));
         }
         return;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('正在登录...')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('正在登录...')));
       }
       bool result = await _backgroundLogin(username, password);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result ? '登录成功' : '登录失败')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result ? '登录成功' : '登录失败')));
       }
       logManager.log('前台操作 - 立即登录${result ? '成功' : '失败'}');
     } catch (e, stack) {
       logManager.logError('前台操作 - 立即登录异常: $e', stack);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('登录异常: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('登录异常: $e')));
       }
     }
   }
@@ -478,15 +579,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
             Column(
               children: [
                 Hero(
-  tag: 'hero_config_dialog',
-  child: SizedBox(
-    width: MediaQuery.of(context).size.width * 0.75,
-    child: ElevatedButton(
-      onPressed: _showConfigDialog,
-      child: const Text('配置'),
-    ),
-  ),
-),
+                  tag: 'hero_config_dialog',
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.75,
+                    child: ElevatedButton(
+                      onPressed: _showConfigDialog,
+                      child: const Text('配置'),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
@@ -503,12 +604,12 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     child: ElevatedButton(
                       onPressed: _showExitOptimizationDialog,
                       style: ElevatedButton.styleFrom(
-                       backgroundColor: const Color.fromARGB(255, 255, 74, 74),
-      ),
-      child: const Text('跳转详情页强行停止APP'),
-    ),
-  ),
-),
+                        backgroundColor: const Color.fromARGB(255, 255, 74, 74),
+                      ),
+                      child: const Text('跳转详情页强行停止APP'),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
@@ -531,9 +632,18 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('网络正常: ${counters['normal']} 次', style: const TextStyle(fontSize: 14)),
-                    Text('重连成功: ${counters['reconnect']} 次', style: const TextStyle(fontSize: 14)),
-                    Text('重连失败: ${counters['fail']} 次', style: const TextStyle(fontSize: 14)),
+                    Text(
+                      '网络正常: ${counters['normal']} 次',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Text(
+                      '重连成功: ${counters['reconnect']} 次',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Text(
+                      '重连失败: ${counters['fail']} 次',
+                      style: const TextStyle(fontSize: 14),
+                    ),
                   ],
                 );
               },
@@ -546,8 +656,14 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: const [
-                    Text('by Aextoxicon&Qwen-coder', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Text('powered by Flutter', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      'by Aextoxicon&Qwen-coder',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    Text(
+                      'powered by Flutter',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -560,6 +676,26 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
 }
 
 // ====== 后台服务初始化（UI 之后） ======
+Future<void> _requestNotificationPermission() async {
+  if (Platform.isAndroid) {
+    // 对于 Android 13+ 需要请求通知权限
+    if (await Permission.notification.isDenied) {
+      final status = await Permission.notification.request();
+      if (status.isDenied) {
+        logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
+      }
+    }
+
+    // 请求忽略电池优化权限
+    if (await Permission.ignoreBatteryOptimizations.isDenied) {
+      final status = await Permission.ignoreBatteryOptimizations.request();
+      if (status.isDenied) {
+        logManager.logWarning('未获得忽略电池优化权限，可能影响后台服务运行。');
+      }
+    }
+  }
+}
+
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
   await service.configure(
@@ -576,23 +712,39 @@ Future<void> _initBackgroundService() async {
   );
 
   if (Platform.isAndroid) {
-    final plugin = FlutterLocalNotificationsPlugin();
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    );
-    await plugin.initialize(initSettings);
+    try {
+      final plugin = FlutterLocalNotificationsPlugin();
+      const initSettings = InitializationSettings(
+        //android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+      );
+      await plugin.initialize(initSettings);
 
-    const channel = AndroidNotificationChannel(
-      CHANNEL_ID,
-      'Auto WIFI Service',
-      description: '用于保持校园网连接的后台服务',
-      importance: Importance.high,
-      playSound: false,
-      enableVibration: false,
-    );
-    await plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+      const channel = AndroidNotificationChannel(
+        CHANNEL_ID,
+        'Auto WIFI Service',
+        description: '用于保持校园网连接的后台服务',
+        importance: Importance.high,
+        playSound: false,
+        enableVibration: false,
+        showBadge: false,
+      );
+
+      // 先删除可能存在的旧频道
+      await plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.deleteNotificationChannel(CHANNEL_ID);
+
+      // 再创建新的通知频道
+      await plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(channel);
+    } catch (e) {
+      logManager.logError('初始化通知服务失败: $e');
+    }
   }
 }
 
@@ -619,7 +771,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
       '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
     );
 
-    final result = response.statusCode == 200 &&
+    final result =
+        response.statusCode == 200 &&
         (response.body.contains('"result":1') ||
             response.body.contains('dr1003({"result":1}'));
 
@@ -667,22 +820,25 @@ Future<void> backgroundTask(ServiceInstance service) async {
     final prefs = await SharedPreferences.getInstance();
     logManager.logDebug('后台任务 - SharedPreferences 实例获取成功');
 
-    service.on('stopService').listen((_) async {
-      logManager.log('后台任务 - 收到停止服务指令，正在退出...');
-      timer?.cancel();
-      try {
-        service.invoke('updateCounters', {
-          'status': '服务已停止',
-          'latestLog': logManager.getLatestLog(),
+    service
+        .on('stopService')
+        .listen((_) async {
+          logManager.log('后台任务 - 收到停止服务指令，正在退出...');
+          timer?.cancel();
+          try {
+            service.invoke('updateCounters', {
+              'status': '服务已停止',
+              'latestLog': logManager.getLatestLog(),
+            });
+          } catch (e) {
+            logManager.logError('发送最终状态更新失败: $e');
+          }
+          await Future.delayed(const Duration(milliseconds: 100));
+          service.stopSelf();
+        })
+        .onError((error, stack) {
+          logManager.logError('监听停止服务指令时发生错误: $error', stack);
         });
-      } catch (e) {
-        logManager.logError('发送最终状态更新失败: $e');
-      }
-      await Future.delayed(const Duration(milliseconds: 100));
-      service.stopSelf();
-    }).onError((error, stack) {
-      logManager.logError('监听停止服务指令时发生错误: $error', stack);
-    });
 
     int normal = 0;
     int reconnect = 0;
