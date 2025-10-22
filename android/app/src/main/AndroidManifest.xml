@@ -30,7 +30,7 @@
                 android:resource="@style/NormalTheme" />
             <meta-data 
                 android:name="io.flutter.embedding.android.NotificationIcon"
-                android:resource="@drawable/launch_background"
+                android:resource="@mimap/launcher_icon"
 />
 
             <intent-filter>

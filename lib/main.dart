@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
-import 'dart:math' as math;
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -94,7 +93,6 @@ class LogManager extends ChangeNotifier {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initBackgroundService();
-  await _requestNotificationPermission();
   runApp(const MyApp());
 }
 
@@ -108,38 +106,6 @@ class MyApp extends StatelessWidget {
       title: 'Auto-WIFI',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const DrcomAuthPage(),
-    );
-  }
-}
-
-class RadialExpansion extends StatelessWidget {
-  RadialExpansion({Key? key, required this.child, required this.heroTag})
-    : super(key: key);
-
-  final Widget child;
-  final Object heroTag;
-
-  @override
-  Widget build(BuildContext context) {
-    return Hero(tag: heroTag, child: _buildRadialExpansion(context));
-  }
-
-  Widget _buildRadialExpansion(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final double size = screenSize.longestSide * 0.9;
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ClipOval(
-        child: Center(
-          child: SizedBox(
-            width: size / math.sqrt2,
-            height: size / math.sqrt2,
-            child: ClipRect(child: child),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -209,6 +175,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
+  Future<void> _requestNotificationPermission() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.request();
+      if (status.isDenied) {
+        logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -216,6 +191,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     _listenBackgroundStatus();
     _listenBackgroundLogs();
     _checkServiceStatus();
+    _requestNotificationPermission();
     _checkBatteryOptimization();
   }
 
@@ -232,6 +208,35 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         logManager.logWarning('检查电池优化状态失败: $e');
       }
     }
+  }
+
+  void _showExitOptimizationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Hero(
+        tag: 'hero_exit_dialog',
+        child: Material(
+          type: MaterialType.transparency,
+          child: AlertDialog(
+            title: const Text('关闭服务'),
+            content: const Text('在App详情页点击强行停止以停止服务'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _openAppSettings();
+                },
+                child: const Text('去设置'),
+              ),
+              TextButton(
+                onPressed: Navigator.of(ctx).pop,
+                child: const Text('取消'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showBatteryOptimizationDialog() {
@@ -327,79 +332,54 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _showConfigDialog() {
     final userCtrl = TextEditingController(text: username);
     final passCtrl = TextEditingController(text: password);
-
-    showGeneralDialog(
+    showDialog(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder:
-          (
-            BuildContext context,
-            Animation<double> animation,
-            Animation<double> secondaryAnimation,
-          ) {
-            return RadialExpansion(
-              heroTag: 'hero_config_dialog',
-              child: Material(
-                type: MaterialType.transparency,
-                child: AlertDialog(
-                  title: const Text('配置账号'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: userCtrl,
-                        decoration: const InputDecoration(labelText: '用户名'),
-                      ),
-                      TextField(
-                        controller: passCtrl,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: '密码'),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: Navigator.of(context).pop,
-                      child: const Text('取消'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final u = userCtrl.text.trim();
-                        final p = passCtrl.text.trim();
-                        prefs.setString('username', u);
-                        prefs.setString('password', p);
-                        setState(() {
-                          username = u;
-                          password = p;
-                          configured = u.isNotEmpty;
-                        });
-                        _forceStopAllServices();
-                        Navigator.pop(context);
-                      },
-                      child: const Text('保存'),
-                    ),
-                  ],
+      builder: (ctx) => Hero(
+        tag: 'hero_config_dialog',
+        child: Material(
+          // 必须是 Material 才能正确渲染 Dialog
+          type: MaterialType.transparency,
+          child: AlertDialog(
+            title: const Text('配置账号'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: userCtrl,
+                  decoration: const InputDecoration(labelText: '用户名'),
                 ),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: '密码'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: Navigator.of(ctx).pop,
+                child: const Text('取消'),
               ),
-            );
-          },
-      transitionBuilder:
-          (
-            BuildContext context,
-            Animation<double> animation,
-            Animation<double> secondaryAnimation,
-            Widget child,
-          ) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
+              ElevatedButton(
+                onPressed: () {
+                  final u = userCtrl.text.trim();
+                  final p = passCtrl.text.trim();
+                  prefs.setString('username', u);
+                  prefs.setString('password', p);
+                  setState(() {
+                    username = u;
+                    password = p;
+                    configured = u.isNotEmpty;
+                  });
+                  _forceStopAllServices();
+                  Navigator.pop(ctx);
+                },
+                child: const Text('保存'),
               ),
-              child: child,
-            );
-          },
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -431,60 +411,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       logManager.logError('前台操作 - 启动服务时发生异常: $e', stack);
       setState(() => status = '启动失败：发生异常');
     }
-  }
-
-  void _showExitOptimizationDialog() {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder:
-          (
-            BuildContext context,
-            Animation<double> animation,
-            Animation<double> secondaryAnimation,
-          ) {
-            return RadialExpansion(
-              heroTag: 'hero_exit_dialog',
-              child: Material(
-                type: MaterialType.transparency,
-                child: AlertDialog(
-                  title: const Text('关闭服务'),
-                  content: const Text('在App详情页点击强行停止以停止服务'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _openAppSettings();
-                      },
-                      child: const Text('去设置'),
-                    ),
-                    TextButton(
-                      onPressed: Navigator.of(context).pop,
-                      child: const Text('取消'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-      transitionBuilder:
-          (
-            BuildContext context,
-            Animation<double> animation,
-            Animation<double> secondaryAnimation,
-            Widget child,
-          ) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
-              ),
-              child: child,
-            );
-          },
-    );
   }
 
   Future<void> _openAppSettings() async {
@@ -676,26 +602,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
 }
 
 // ====== 后台服务初始化（UI 之后） ======
-Future<void> _requestNotificationPermission() async {
-  if (Platform.isAndroid) {
-    // 对于 Android 13+ 需要请求通知权限
-    if (await Permission.notification.isDenied) {
-      final status = await Permission.notification.request();
-      if (status.isDenied) {
-        logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
-      }
-    }
-
-    // 请求忽略电池优化权限
-    if (await Permission.ignoreBatteryOptimizations.isDenied) {
-      final status = await Permission.ignoreBatteryOptimizations.request();
-      if (status.isDenied) {
-        logManager.logWarning('未获得忽略电池优化权限，可能影响后台服务运行。');
-      }
-    }
-  }
-}
-
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
   await service.configure(
@@ -712,39 +618,25 @@ Future<void> _initBackgroundService() async {
   );
 
   if (Platform.isAndroid) {
-    try {
-      final plugin = FlutterLocalNotificationsPlugin();
-      const initSettings = InitializationSettings(
-        //android: AndroidInitializationSettings('@mipmap/launcher_icon'),
-      );
-      await plugin.initialize(initSettings);
+    final plugin = FlutterLocalNotificationsPlugin();
+    const initSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+    await plugin.initialize(initSettings);
 
-      const channel = AndroidNotificationChannel(
-        CHANNEL_ID,
-        'Auto WIFI Service',
-        description: '用于保持校园网连接的后台服务',
-        importance: Importance.high,
-        playSound: false,
-        enableVibration: false,
-        showBadge: false,
-      );
-
-      // 先删除可能存在的旧频道
-      await plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.deleteNotificationChannel(CHANNEL_ID);
-
-      // 再创建新的通知频道
-      await plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
-    } catch (e) {
-      logManager.logError('初始化通知服务失败: $e');
-    }
+    const channel = AndroidNotificationChannel(
+      CHANNEL_ID,
+      'Auto WIFI Service',
+      description: '用于保持校园网连接的后台服务',
+      importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
   }
 }
 
