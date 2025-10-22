@@ -109,6 +109,21 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// 定义一个通用的 Dialog 路由
+Route _createHeroDialogRoute(Widget dialog) {
+  return PageRouteBuilder(
+    // 将背景设置为透明
+    opaque: false,
+    // 允许 Hero 动画的正常执行
+    pageBuilder: (context, animation, secondaryAnimation) => dialog,
+    // 关键：确保不添加会覆盖 Hero 动画的默认转场效果
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      // 只保留 Hero 动画，或者添加一个淡入（FadeTransition）效果
+      return FadeTransition(opacity: animation, child: child);
+    },
+  );
+}
+
 class DrcomAuthPage extends StatefulWidget {
   const DrcomAuthPage({super.key});
 
@@ -210,28 +225,35 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   }
 
   void _showExitOptimizationDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => Hero(
-        tag: 'hero_exit_dialog',
-        child: Material(
-          type: MaterialType.transparency,
-          child: AlertDialog(
-            title: const Text('关闭服务'),
-            content: const Text('在App详情页点击强行停止以停止服务'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _openAppSettings();
-                },
-                child: const Text('去设置'),
+    // [修改] 使用自定义路由代替 showDialog
+    Navigator.of(context).push(
+      _createHeroDialogRoute(
+        Hero(
+          tag: 'hero_exit_dialog',
+          child: Material(
+            type: MaterialType.transparency,
+            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
+            child: Center(
+              child: AlertDialog(
+                title: const Text('关闭服务'),
+                content: const Text('在App详情页点击强行停止以停止服务'),
+                actions: [
+                  TextButton(
+                    // [修改] 弹出时使用 Navigator.pop
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // [修改] 弹出时使用 Navigator.pop
+                      Navigator.of(context).pop();
+                      _openAppSettings();
+                    },
+                    child: const Text('去设置'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: Navigator.of(ctx).pop,
-                child: const Text('取消'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -249,15 +271,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         ),
         actions: [
           TextButton(
+            onPressed: Navigator.of(ctx).pop,
+            child: const Text('稍后再说'),
+          ),
+          ElevatedButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               _openBatteryOptimizationSettings();
             },
             child: const Text('去设置'),
-          ),
-          TextButton(
-            onPressed: Navigator.of(ctx).pop,
-            child: const Text('稍后再说'),
           ),
         ],
       ),
@@ -331,57 +353,64 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _showConfigDialog() {
     final userCtrl = TextEditingController(text: username);
     final passCtrl = TextEditingController(text: password);
-    showDialog(
-      context: context,
-      builder: (ctx) => Hero(
-        tag: 'hero_config_dialog',
-        child: Material(
-          // 必须是 Material 才能正确渲染 Dialog
-          type: MaterialType.transparency,
-          child: AlertDialog(
-            title: const Text('配置账号'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: userCtrl,
-                  decoration: const InputDecoration(labelText: '用户名'),
+    // [修改] 使用自定义路由代替 showDialog
+    Navigator.of(context).push(
+      _createHeroDialogRoute(
+        Hero(
+          tag: 'hero_config_dialog',
+          child: Material(
+            // 必须是 Material 才能正确渲染 Dialog
+            type: MaterialType.transparency,
+            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
+            child: Center(
+              child: AlertDialog(
+                title: const Text('配置账号'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: userCtrl,
+                      decoration: const InputDecoration(labelText: '用户名'),
+                    ),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: '密码'),
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: '密码'),
-                ),
-              ],
+                actions: [
+                  TextButton(
+                    // [修改] 弹出时使用 Navigator.pop
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      final u = userCtrl.text.trim();
+                      final p = passCtrl.text.trim();
+                      prefs.setString('username', u);
+                      prefs.setString('password', p);
+                      setState(() {
+                        username = u;
+                        password = p;
+                        configured = u.isNotEmpty;
+                      });
+                      _forceStopAllServices();
+                      // [修改] 弹出时使用 Navigator.pop
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: Navigator.of(ctx).pop,
-                child: const Text('取消'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final u = userCtrl.text.trim();
-                  final p = passCtrl.text.trim();
-                  prefs.setString('username', u);
-                  prefs.setString('password', p);
-                  setState(() {
-                    username = u;
-                    password = p;
-                    configured = u.isNotEmpty;
-                  });
-                  _forceStopAllServices();
-                  Navigator.pop(ctx);
-                },
-                child: const Text('保存'),
-              ),
-            ],
           ),
         ),
       ),
     );
   }
-  
+
   bool serviceInitialized = false;
   Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
@@ -496,7 +525,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI (beta)')),
+      appBar: AppBar(title: const Text('Auto-WIFI')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -510,6 +539,10 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
               children: [
                 Hero(
                   tag: 'hero_config_dialog',
+                  createRectTween: (begin, end) {
+                    // 强制 Hero 沿直线路径飞行
+                    return RectTween(begin: begin, end: end);
+                  },
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.75,
                     child: ElevatedButton(
@@ -529,13 +562,14 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 const SizedBox(height: 8),
                 Hero(
                   tag: 'hero_exit_dialog',
+                  createRectTween: (begin, end) {
+                    // 强制 Hero 沿直线路径飞行
+                    return RectTween(begin: begin, end: end);
+                  },
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.75,
                     child: ElevatedButton(
                       onPressed: _showExitOptimizationDialog,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 255, 74, 74),
-                      ),
                       child: const Text('跳转详情页强行停止APP'),
                     ),
                   ),
