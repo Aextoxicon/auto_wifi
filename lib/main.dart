@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
-import 'package:path_provider/path_provider.dart';
 import "package:android_intent_plus/android_intent.dart";
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
