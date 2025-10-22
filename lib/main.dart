@@ -89,6 +89,7 @@ class LogManager extends ChangeNotifier {
 // ====== 应用入口（现在放在最前面） ======
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initBackgroundService();
   runApp(const MyApp());
 }
 
@@ -356,8 +357,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       ),
     );
   }
-  
-  bool serviceInitialized = false;
+
   Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
     if (!configured || username.isEmpty || password.isEmpty) {
@@ -366,10 +366,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       return;
     }
     try {
-      if (!serviceInitialized) {
-        await _initBackgroundService();
-        serviceInitialized = true;
-      }
       final service = FlutterBackgroundService();
       if (Platform.isAndroid) {
         logManager.log('前台操作 - 准备启动后台服务');
