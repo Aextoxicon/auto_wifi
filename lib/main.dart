@@ -356,7 +356,8 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       ),
     );
   }
-
+  
+  bool serviceInitialized = false;
   Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
     if (!configured || username.isEmpty || password.isEmpty) {
