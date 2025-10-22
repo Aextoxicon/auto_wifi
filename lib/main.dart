@@ -236,7 +236,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
             child: Center(
               child: AlertDialog(
                 title: const Text('关闭服务'),
-                content: const Text('在App详情页点击强行停止以停止服务'),
+                content: const Text('点击强行停止以停止服务,别忘了划掉后台窗口'),
                 actions: [
                   TextButton(
                     // [修改] 弹出时使用 Navigator.pop
@@ -570,7 +570,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     width: MediaQuery.of(context).size.width * 0.75,
                     child: ElevatedButton(
                       onPressed: _showExitOptimizationDialog,
-                      child: const Text('跳转详情页强行停止APP'),
+                      child: const Text('跳转设置强行停止APP'),
                     ),
                   ),
                 ),
