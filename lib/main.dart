@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
+import 'package:path_provider/path_provider.dart';
 import "package:android_intent_plus/android_intent.dart";
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
@@ -15,7 +16,7 @@ const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
 
-// 日志管理
+// ====== 日志管理（全局使用，放在顶部） ======
 class LogManager extends ChangeNotifier {
   static final LogManager _instance = LogManager._internal();
   factory LogManager() => _instance;
@@ -25,28 +26,23 @@ class LogManager extends ChangeNotifier {
   static const int _maxLogs = 100;
 
   List<String> get logs => List.unmodifiable(_logs);
-
   String getLatestLog() {
     if (_logs.isEmpty) return '';
     return _logs.last;
   }
 
-  // 标准日志方法
   void log(String message) {
     _logMessage(message, 'info');
   }
 
-  // 错误日志方法
   void logError(String message, [StackTrace? stackTrace]) {
     _logMessage('[ERROR] $message', 'error', stackTrace);
   }
 
-  // 警告日志方法
   void logWarning(String message) {
     _logMessage('[WARNING] $message', 'warning');
   }
 
-  // 调试日志方法（仅在调试模式下输出）
   void logDebug(String message) {
     if (kDebugMode) {
       _logMessage('[DEBUG] $message', 'debug');
@@ -56,21 +52,16 @@ class LogManager extends ChangeNotifier {
   void _logMessage(String message, String level, [StackTrace? stackTrace]) {
     final timestamp = DateTime.now().toLocal().toString().substring(11, 19);
     final logMessage = '[$timestamp] $message';
-
     _logs.add(logMessage);
-
     if (_logs.length > _maxLogs) {
       _logs.removeAt(0);
     }
-
     notifyListeners();
 
-    // 使用 Flutter 自带的 debugPrint（调试模式）
     if (kDebugMode) {
       debugPrint(logMessage);
     }
 
-    // 使用 dart:developer 的 log 函数
     developer.log(
       message,
       name: 'AutoWIFI',
@@ -80,7 +71,6 @@ class LogManager extends ChangeNotifier {
       stackTrace: stackTrace,
     );
 
-    // 在 Release 模式下也输出关键错误
     if (!kDebugMode && (level == 'error' || level == 'warning')) {
       print(logMessage);
     }
@@ -88,272 +78,32 @@ class LogManager extends ChangeNotifier {
 
   int _getLogLevel(String level) {
     switch (level) {
-      case 'error':
-        return 2000;
-      case 'warning':
-        return 1500;
-      case 'debug':
-        return 500;
-      default:
-        return 1000;
+      case 'error': return 2000;
+      case 'warning': return 1500;
+      case 'debug': return 500;
+      default: return 1000;
     }
   }
 }
 
-// 后台服务
-
-Future<bool> _backgroundLogin(String username, String password) async {
-  logManager.log('后台认证 - 尝试登录: $username');
-  try {
-    // 手动构造 URL
-    String url =
-        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-    //String url =
-    //    'http://192.168.31.113:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-    final loginUri = Uri.parse(url);
-    logManager.logDebug('后台认证 - 请求 URL: $loginUri');
-
-    final response = await http
-        .get(
-          loginUri,
-          headers: {
-            'User-Agent': 'curl/7.88.1', // 模拟 curl
-            'Accept': '*/*',
-            'Connection': 'close',
-          },
-        )
-        .timeout(const Duration(seconds: 8));
-
-    logManager.logDebug(
-      '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
-    );
-
-    final result =
-        response.statusCode == 200 &&
-        (response.body.contains('"result":1') ||
-            response.body.contains('dr1003({"result":1}'));
-
-    if (result) {
-      logManager.log('后台认证 - 登录成功');
-    } else {
-      logManager.logWarning('后台认证 - 登录失败');
-    }
-    return result;
-  } catch (e, stack) {
-    logManager.logError('后台认证 - 登录异常: $e', stack);
-    return false;
-  }
-}
-
-Future<bool> _backgroundIsInternetOk() async {
-  try {
-    logManager.logDebug('后台认证 - 网络检测开始');
-    final resp = await http
-        .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(const Duration(seconds: 1));
-    final result =
-        resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
-    logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
-    return result;
-  } catch (e, stack) {
-    logManager.logWarning('后台认证 - 网络检测异常: $e');
-    final prefs = await SharedPreferences.getInstance();
-    String username = prefs.getString('username') ?? '';
-    String password = prefs.getString('password') ?? '';
-    await _backgroundLogin(username, password);
-    return false;
-  }
-}
-
-@pragma('vm:entry-point')
-Future<void> backgroundTask(ServiceInstance service) async {
-  // 确保第一时间初始化日志
-  logManager.log('后台任务 - 启动');
-
-  Timer? timer;
-  int consecutiveErrors = 0;
-  const maxConsecutiveErrors = 3;
-
-  try {
-    logManager.logDebug('后台任务 - 获取 SharedPreferences 实例');
-    final prefs = await SharedPreferences.getInstance();
-    logManager.logDebug('后台任务 - SharedPreferences 实例获取成功');
-
-    // 确保服务监听器设置在最前面
-    service
-        .on('stopService')
-        .listen((_) async {
-          logManager.log('后台任务 - 收到停止服务指令，正在退出...');
-          timer?.cancel();
-
-          try {
-            service.invoke('updateCounters', {
-              'status': '服务已停止',
-              'latestLog': logManager.getLatestLog(),
-            });
-          } catch (e) {
-            logManager.logError('发送最终状态更新失败: $e');
-          }
-
-          await Future.delayed(const Duration(milliseconds: 100));
-          service.stopSelf();
-        })
-        .onError((error, stack) {
-          logManager.logError('监听停止服务指令时发生错误: $error', stack);
-        });
-
-    int normal = 0;
-    int reconnect = 0;
-    int fail = 0;
-
-    logManager.log('后台任务 - 启动定时检测 (1秒周期)');
-    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      logManager.logDebug('后台任务 - 定时检测循环开始');
-
-      try {
-        final username = prefs.getString('username') ?? '';
-        final password = prefs.getString('password') ?? '';
-
-        logManager.logDebug('后台任务 - 配置检查: 用户名存在=${username.isNotEmpty}');
-
-        if (username.isEmpty || password.isEmpty) {
-          logManager.logWarning('后台任务 - 配置为空，中止循环');
-          service.invoke('updateCounters', {
-            'status': '配置缺失',
-            'latestLog': logManager.getLatestLog(),
-          });
-          return;
-        }
-
-        logManager.logDebug('后台任务 - 开始网络检测');
-
-        bool netOk = await _backgroundIsInternetOk();
-        logManager.logDebug('后台任务 - 网络检测完成: $netOk');
-
-        bool ok = false;
-
-        if (netOk) {
-          normal++;
-          logManager.log('后台任务 - 网络正常，计数增加');
-        } else {
-          logManager.log('后台任务 - 网络异常，开始登录');
-          bool loginResult = await _backgroundLogin(username, password);
-          if (loginResult) {
-            reconnect++;
-            ok = true;
-          } else {
-            fail++;
-            ok = false;
-          }
-        }
-
-        consecutiveErrors = 0;
-
-        logManager.logDebug('后台任务 - 发送状态更新');
-        service.invoke('updateCounters', {
-          'normal': normal,
-          'reconnect': reconnect,
-          'fail': fail,
-          'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
-          'latestLog': logManager.getLatestLog(),
-        });
-      } catch (e, stack) {
-        consecutiveErrors++;
-        logManager.logError(
-          '后台任务发生错误 ($consecutiveErrors/$maxConsecutiveErrors): $e',
-          stack,
-        );
-
-        if (consecutiveErrors >= maxConsecutiveErrors) {
-          logManager.logError('后台任务连续错误过多，自动停止服务');
-          service.invoke('updateCounters', {
-            'status': '服务异常停止',
-            'latestLog': logManager.getLatestLog(),
-          });
-          timer?.cancel();
-          service.stopSelf();
-        }
-
-        try {
-          service.invoke('updateCounters', {
-            'status': '任务错误',
-            'latestLog': logManager.getLatestLog(),
-          });
-        } catch (_) {}
-      }
-    });
-  } catch (e, stack) {
-    logManager.logError('后台任务发生致命错误: $e', stack);
-    try {
-      service.invoke('updateCounters', {
-        'status': '服务崩溃',
-        'latestLog': logManager.getLatestLog(),
-      });
-    } catch (invokeError, invokeStack) {
-      logManager.logError('调用 updateCounters 失败: $invokeError', invokeStack);
-    }
-    service.stopSelf();
-  }
-}
-
-// 前端
-
-Future<void> _initBackgroundService() async {
-  final service = FlutterBackgroundService();
-
-  // 首先配置Android特定设置
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: backgroundTask,
-      autoStart: true,
-      isForegroundMode: true,
-      notificationChannelId: CHANNEL_ID,
-      initialNotificationTitle: 'Auto-WIFI',
-      initialNotificationContent: '保持校园网连接',
-
-      foregroundServiceTypes: [AndroidForegroundType.dataSync],
-    ),
-    iosConfiguration: IosConfiguration(),
-  );
-
-  // 对于Android，额外处理通知渠道
-  if (Platform.isAndroid) {
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      CHANNEL_ID,
-      'Auto WIFI Service',
-      description: '用于保持校园网连接的后台服务',
-      importance: Importance.high,
-      playSound: false,
-      enableVibration: false,
-    );
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-  }
-}
-
+// ====== 应用入口（现在放在最前面） ======
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _initBackgroundService();
+  
+  // 先初始化必要的组件
+  await SharedPreferences.getInstance();
+  
+  // 快速启动UI
   runApp(const MyApp());
+  
+  // 后台服务异步初始化
+  unawaited(_initBackgroundService());
 }
 
+// ====== UI 部分 ======
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -366,22 +116,9 @@ class MyApp extends StatelessWidget {
 
 class DrcomAuthPage extends StatefulWidget {
   const DrcomAuthPage({super.key});
+
   @override
   State<DrcomAuthPage> createState() => _DrcomAuthPageState();
-}
-
-Route _createHeroDialogRoute(Widget dialog) {
-  return PageRouteBuilder(
-    // 将背景设置为透明
-    opaque: false,
-    // 允许 Hero 动画的正常执行
-    pageBuilder: (context, animation, secondaryAnimation) => dialog,
-    // 关键：确保不添加会覆盖 Hero 动画的默认转场效果
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      // 仅保留一个 FadeTransition 淡入/淡出效果，以确保背景和 Dialog 的平滑出现
-      return FadeTransition(opacity: animation, child: child);
-    },
-  );
 }
 
 class _DrcomAuthPageState extends State<DrcomAuthPage> {
@@ -390,7 +127,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   String username = '';
   String password = '';
   String status = '准备就绪';
-
   final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
     'normal': 0,
     'reconnect': 0,
@@ -398,7 +134,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   });
 
   void _listenBackgroundLogs() {
-    // 监听日志更新
     logManager.addListener(() {
       setState(() {});
     });
@@ -438,10 +173,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('我知道了'),
             ),
-            ElevatedButton(
-              onPressed: _openBatteryOptimizationSettings,
-              child: const Text('去设置'),
-            ),
           ],
         ),
       );
@@ -450,7 +181,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
 
   Future<void> _requestNotificationPermission() async {
     if (Platform.isAndroid) {
-      // 检查并请求通知权限 （Android 13+)
       final status = await Permission.notification.request();
       if (status.isDenied) {
         logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
@@ -485,40 +215,30 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   }
 
   void _showExitOptimizationDialog() {
-    // [修改] 使用自定义路由代替 showDialog
-    Navigator.of(context).push(
-      _createHeroDialogRoute(
-        Hero(
-          tag: 'hero_exit_dialog',
-          child: Material(
-            type: MaterialType.transparency,
-            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
-            child: Center(
-              child: AlertDialog(
-                title: const Text('关闭服务'),
-                content: const Text('在App详情页点击强行停止以停止服务'),
-                actions: [
-                  TextButton(
-                    // [修改] 弹出时使用 Navigator.pop
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // [修改] 弹出时使用 Navigator.pop
-                      Navigator.of(context).pop();
-                      _openAppSettings();
-                    },
-                    child: const Text('去设置'),
-                  ),                  
-                ],
-              ),
+  showDialog(
+    context: context,
+    builder: (ctx) => Hero(
+      tag: 'hero_exit_dialog',
+      child: Material(
+        type: MaterialType.transparency,
+        child: AlertDialog(
+          title: const Text('关闭服务'),
+          content: const Text('在App详情页点击强行停止以停止服务'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _openAppSettings();
+              },
+              child: const Text('去设置'),
             ),
-          ),
+            TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showBatteryOptimizationDialog() {
     showDialog(
@@ -526,7 +246,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       builder: (ctx) => AlertDialog(
         title: const Text('请关闭电池优化'),
         content: const Text(
-          '为确保后台服务正常运行，请前往:'
+          '为确保后台服务正常运行，请前往:\n'
           '电池优化→找到本应用→选择不优化',
         ),
         actions: [
@@ -549,29 +269,20 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _checkServiceStatus() async {
     try {
       final service = FlutterBackgroundService();
-      // 检查服务是否已在运行
       bool isRunning = await service.isRunning();
-
       if (isRunning) {
-        // 正在运行，只更新状态
         setState(() => status = '后台已运行');
       } else {
         logManager.log('前台操作 - 检测到服务未运行，尝试自动启动...');
-
-        // 检查配置，避免无配置启动
         final prefs = await SharedPreferences.getInstance();
         final username = prefs.getString('username') ?? '';
         final password = prefs.getString('password') ?? '';
-
         if (username.isNotEmpty && password.isNotEmpty) {
-          // 如果配置存在，启动服务
-          await _startLoop(); // 这会启动服务
-          // 等待一小段时间后检查状态
+          await _startLoop();
           await Future.delayed(const Duration(milliseconds: 500));
           bool nowRunning = await service.isRunning();
           setState(() => status = nowRunning ? '后台已运行' : '启动失败');
         } else {
-          // 如果配置缺失，给出提示
           setState(() => status = '配置缺失，请先设置账号');
           logManager.logWarning('前台操作 - 配置缺失，无法自动启动服务。');
         }
@@ -585,108 +296,86 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _listenBackgroundStatus() async {
     try {
       final service = FlutterBackgroundService();
-
-      // 检查服务是否正在运行
       bool isRunning = await service.isRunning();
       if (isRunning) {
         setState(() => status = '后台已运行');
       }
-
-      // 监听来自后台的更新
-      service
-          .on('updateCounters')
-          .listen((data) {
-            if (data != null && data is Map) {
-              final newStatus = data['status'] as String? ?? '运行中';
-
-              if (status != newStatus) {
-                setState(() => status = newStatus);
-              }
-
-              _countersNotifier.value = {
-                'normal': data['normal'] as int? ?? 0,
-                'reconnect': data['reconnect'] as int? ?? 0,
-                'fail': data['fail'] as int? ?? 0,
-              };
-
-              final latestLog = data['latestLog'] as String?;
-              if (latestLog != null && latestLog.isNotEmpty) {
-                // 检查前台 LogManager 中是否已有这条日志（防止重复）
-                if (!logManager.logs.contains(latestLog)) {
-                  logManager._logs.add(latestLog);
-                  logManager.notifyListeners();
-                }
-              }
+      service.on('updateCounters').listen((data) {
+        if (data != null && data is Map) {
+          final newStatus = data['status'] as String? ?? '运行中';
+          if (status != newStatus) {
+            setState(() => status = newStatus);
+          }
+          _countersNotifier.value = {
+            'normal': data['normal'] as int? ?? 0,
+            'reconnect': data['reconnect'] as int? ?? 0,
+            'fail': data['fail'] as int? ?? 0,
+          };
+          final latestLog = data['latestLog'] as String?;
+          if (latestLog != null && latestLog.isNotEmpty) {
+            if (!logManager.logs.contains(latestLog)) {
+              logManager._logs.add(latestLog);
+              logManager.notifyListeners();
             }
-          })
-          .onError((error) {
-            logManager.log('监听后台状态时发生错误: $error');
-          });
+          }
+        }
+      }).onError((error) {
+        logManager.log('监听后台状态时发生错误: $error');
+      });
     } catch (e) {
       logManager.log('初始化后台状态监听失败: $e');
     }
   }
 
   void _showConfigDialog() {
-    final userCtrl = TextEditingController(text: username);
-    final passCtrl = TextEditingController(text: password);
-    // [修改] 使用自定义路由代替 showDialog
-    Navigator.of(context).push(
-      _createHeroDialogRoute(
-        Hero(
-          tag: 'hero_config_dialog',
-          child: Material(
-            // 必须是 Material 才能正确渲染 Dialog
-            type: MaterialType.transparency,
-            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
-            child: Center(
-              child: AlertDialog(
-                title: const Text('配置账号'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: userCtrl,
-                      decoration: const InputDecoration(labelText: '用户名'),
-                    ),
-                    TextField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '密码'),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    // [修改] 弹出时使用 Navigator.pop
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      final u = userCtrl.text.trim();
-                      final p = passCtrl.text.trim();
-                      prefs.setString('username', u);
-                      prefs.setString('password', p);
-                      setState(() {
-                        username = u;
-                        password = p;
-                        configured = u.isNotEmpty;
-                      });
-                      _forceStopAllServices();
-                      // [修改] 弹出时使用 Navigator.pop
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('保存'),
-                  ),
-                ],
+  final userCtrl = TextEditingController(text: username);
+  final passCtrl = TextEditingController(text: password);
+  showDialog(
+    context: context,
+    builder: (ctx) => Hero(
+      tag: 'hero_config_dialog',
+      child: Material( // 必须是 Material 才能正确渲染 Dialog
+        type: MaterialType.transparency,
+        child: AlertDialog(
+          title: const Text('配置账号'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: userCtrl,
+                decoration: const InputDecoration(labelText: '用户名'),
               ),
-            ),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '密码'),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
+            ElevatedButton(
+              onPressed: () {
+                final u = userCtrl.text.trim();
+                final p = passCtrl.text.trim();
+                prefs.setString('username', u);
+                prefs.setString('password', p);
+                setState(() {
+                  username = u;
+                  password = p;
+                  configured = u.isNotEmpty;
+                });
+                _forceStopAllServices();
+                Navigator.pop(ctx);
+              },
+              child: const Text('保存'),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _startLoop() async {
     logManager.log('前台操作 - 尝试启动服务...');
@@ -695,28 +384,20 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       setState(() => status = '启动失败：请先配置账号');
       return;
     }
-
     try {
       final service = FlutterBackgroundService();
-
-      // 不再检查是否运行，直接尝试启动服务
       if (Platform.isAndroid) {
         logManager.log('前台操作 - 准备启动后台服务');
         final started = await service.startService();
-
         setState(() {
           status = started ? '启动中...' : '启动失败：系统拒绝';
         });
-
         if (mounted) {
           final message = started ? '后台服务启动命令已发送。' : '启动失败：系统拒绝。';
           logManager.log('前台操作 - $message');
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         }
       }
-
       _countersNotifier.value = {'normal': 0, 'reconnect': 0, 'fail': 0};
     } catch (e, stack) {
       logManager.logError('前台操作 - 启动服务时发生异常: $e', stack);
@@ -741,90 +422,49 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   Future<void> _forceStopAllServices() async {
     try {
       final service = FlutterBackgroundService();
-
-      try {
-        if (await service.isRunning()) {
-          service.invoke("stopService");
-        }
-      } catch (e) {
-        logManager.logWarning('发送停止指令失败: $e');
+      if (await service.isRunning()) {
+        service.invoke("stopService");
+        await Future.delayed(const Duration(milliseconds: 300));
       }
-
-      try {
-        if (await service.isRunning()) {
-          service.invoke('stopService');
-          await Future.delayed(const Duration(milliseconds: 300)); // 等待后台处理完
-        }
-      } catch (e) {
-        logManager.logWarning('调用停止服务失败: $e');
+      if (Platform.isAndroid) {
+        final plugin = FlutterLocalNotificationsPlugin();
+        await plugin.cancelAll();
       }
-
-      try {
-        if (Platform.isAndroid) {
-          final FlutterLocalNotificationsPlugin
-          flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-          await flutterLocalNotificationsPlugin.cancelAll();
-        }
-      } catch (e) {
-        logManager.logWarning('清除通知失败: $e');
-      }
-
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
       }
     } catch (e, stack) {
       logManager.logError('强制停止服务时发生异常: $e', stack);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('强制停止服务失败: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('强制停止服务失败: $e')));
       }
     }
   }
 
   Future<void> _immediateLogin() async {
     logManager.log('前台操作 - 立即登录');
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final username = prefs.getString('username') ?? '';
       final password = prefs.getString('password') ?? '';
-
       if (username.isEmpty || password.isEmpty) {
-        logManager.logWarning('前台操作 - 登录失败：未配置账号');
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('请先配置账号和密码')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先配置账号和密码')));
         }
         return;
       }
-
-      // 显示正在登录的提示
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('正在登录...')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('正在登录...')));
       }
-
-      // 调用登录函数
       bool result = await _backgroundLogin(username, password);
-
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(result ? '登录成功' : '登录失败')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result ? '登录成功' : '登录失败')));
       }
-
       logManager.log('前台操作 - 立即登录${result ? '成功' : '失败'}');
     } catch (e, stack) {
       logManager.logError('前台操作 - 立即登录异常: $e', stack);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('登录异常: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('登录异常: $e')));
       }
     }
   }
@@ -842,16 +482,18 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
               const Text('请先配置账号', style: TextStyle(color: Colors.orange)),
             if (configured) Text('当前账号: $username'),
             const SizedBox(height: 16),
-            // 替换原有的 Wrap 部分代码
             Column(
               children: [
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.75,
-                  child: ElevatedButton(
-                    onPressed: _showConfigDialog,
-                    child: const Text('配置'),
-                  ),
-                ),
+                Hero(
+  tag: 'hero_config_dialog',
+  child: SizedBox(
+    width: MediaQuery.of(context).size.width * 0.75,
+    child: ElevatedButton(
+      onPressed: _showConfigDialog,
+      child: const Text('配置'),
+    ),
+  ),
+),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
@@ -861,16 +503,19 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.75,
-                  child: ElevatedButton(
-                    onPressed: _showExitOptimizationDialog,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 255, 74, 74),
-                    ),
-                    child: const Text('跳转详情页强行停止APP'),
-                  ),
-                ),
+                Hero(
+                  tag: 'hero_exit_dialog',
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.75,
+                    child: ElevatedButton(
+                      onPressed: _showExitOptimizationDialog,
+                      style: ElevatedButton.styleFrom(
+                       backgroundColor: const Color.fromARGB(255, 255, 74, 74),
+      ),
+      child: const Text('跳转详情页强行停止APP'),
+    ),
+  ),
+),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
@@ -893,18 +538,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '网络正常: ${counters['normal']} 次',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    Text(
-                      '重连成功: ${counters['reconnect']} 次',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    Text(
-                      '重连失败: ${counters['fail']} 次',
-                      style: const TextStyle(fontSize: 14),
-                    ),
+                    Text('网络正常: ${counters['normal']} 次', style: const TextStyle(fontSize: 14)),
+                    Text('重连成功: ${counters['reconnect']} 次', style: const TextStyle(fontSize: 14)),
+                    Text('重连失败: ${counters['fail']} 次', style: const TextStyle(fontSize: 14)),
                   ],
                 );
               },
@@ -917,14 +553,8 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: const [
-                    Text(
-                      'by Aextoxicon&Qwen-coder',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    Text(
-                      'powered by Flutter',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+                    Text('by Aextoxicon&Qwen-coder', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('powered by Flutter', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ),
@@ -933,5 +563,214 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         ),
       ),
     );
+  }
+}
+
+// ====== 后台服务初始化（UI 之后） ======
+Future<void> _initBackgroundService() async {
+  final service = FlutterBackgroundService();
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: backgroundTask,
+      autoStart: true,
+      isForegroundMode: true,
+      notificationChannelId: CHANNEL_ID,
+      initialNotificationTitle: 'Auto-WIFI',
+      initialNotificationContent: '保持校园网连接',
+      foregroundServiceTypes: [AndroidForegroundType.dataSync],
+    ),
+    iosConfiguration: IosConfiguration(),
+  );
+
+  if (Platform.isAndroid) {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const initSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+    await plugin.initialize(initSettings);
+
+    const channel = AndroidNotificationChannel(
+      CHANNEL_ID,
+      'Auto WIFI Service',
+      description: '用于保持校园网连接的后台服务',
+      importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+}
+
+// ====== 后台任务逻辑（全部移到最后） ======
+Future<bool> _backgroundLogin(String username, String password) async {
+  logManager.log('后台认证 - 尝试登录: $username');
+  try {
+    String url =
+        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+    final loginUri = Uri.parse(url);
+    logManager.logDebug('后台认证 - 请求 URL: $loginUri');
+    final response = await http
+        .get(
+          loginUri,
+          headers: {
+            'User-Agent': 'curl/7.88.1',
+            'Accept': '*/*',
+            'Connection': 'close',
+          },
+        )
+        .timeout(const Duration(seconds: 8));
+
+    logManager.logDebug(
+      '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
+    );
+
+    final result = response.statusCode == 200 &&
+        (response.body.contains('"result":1') ||
+            response.body.contains('dr1003({"result":1}'));
+
+    if (result) {
+      logManager.log('后台认证 - 登录成功');
+    } else {
+      logManager.logWarning('后台认证 - 登录失败');
+    }
+    return result;
+  } catch (e, stack) {
+    logManager.logError('后台认证 - 登录异常: $e', stack);
+    return false;
+  }
+}
+
+Future<bool> _backgroundIsInternetOk() async {
+  try {
+    logManager.logDebug('后台认证 - 网络检测开始');
+    final resp = await http
+        .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
+        .timeout(const Duration(seconds: 1));
+    final result =
+        resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
+    logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
+    return result;
+  } catch (e, stack) {
+    logManager.logWarning('后台认证 - 网络检测异常: $e');
+    final prefs = await SharedPreferences.getInstance();
+    String username = prefs.getString('username') ?? '';
+    String password = prefs.getString('password') ?? '';
+    await _backgroundLogin(username, password);
+    return false;
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> backgroundTask(ServiceInstance service) async {
+  logManager.log('后台任务 - 启动');
+  Timer? timer;
+  int consecutiveErrors = 0;
+  const maxConsecutiveErrors = 3;
+
+  try {
+    logManager.logDebug('后台任务 - 获取 SharedPreferences 实例');
+    final prefs = await SharedPreferences.getInstance();
+    logManager.logDebug('后台任务 - SharedPreferences 实例获取成功');
+
+    service.on('stopService').listen((_) async {
+      logManager.log('后台任务 - 收到停止服务指令，正在退出...');
+      timer?.cancel();
+      try {
+        service.invoke('updateCounters', {
+          'status': '服务已停止',
+          'latestLog': logManager.getLatestLog(),
+        });
+      } catch (e) {
+        logManager.logError('发送最终状态更新失败: $e');
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      service.stopSelf();
+    }).onError((error, stack) {
+      logManager.logError('监听停止服务指令时发生错误: $error', stack);
+    });
+
+    int normal = 0;
+    int reconnect = 0;
+    int fail = 0;
+    logManager.log('后台任务 - 启动定时检测 (1秒周期)');
+    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      logManager.logDebug('后台任务 - 定时检测循环开始');
+      try {
+        final username = prefs.getString('username') ?? '';
+        final password = prefs.getString('password') ?? '';
+        logManager.logDebug('后台任务 - 配置检查: 用户名存在=${username.isNotEmpty}');
+        if (username.isEmpty || password.isEmpty) {
+          logManager.logWarning('后台任务 - 配置为空，中止循环');
+          service.invoke('updateCounters', {
+            'status': '配置缺失',
+            'latestLog': logManager.getLatestLog(),
+          });
+          return;
+        }
+
+        logManager.logDebug('后台任务 - 开始网络检测');
+        bool netOk = await _backgroundIsInternetOk();
+        logManager.logDebug('后台任务 - 网络检测完成: $netOk');
+
+        bool ok = false;
+        if (netOk) {
+          normal++;
+          logManager.log('后台任务 - 网络正常，计数增加');
+        } else {
+          logManager.log('后台任务 - 网络异常，开始登录');
+          bool loginResult = await _backgroundLogin(username, password);
+          if (loginResult) {
+            reconnect++;
+            ok = true;
+          } else {
+            fail++;
+            ok = false;
+          }
+        }
+
+        consecutiveErrors = 0;
+        service.invoke('updateCounters', {
+          'normal': normal,
+          'reconnect': reconnect,
+          'fail': fail,
+          'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
+          'latestLog': logManager.getLatestLog(),
+        });
+      } catch (e, stack) {
+        consecutiveErrors++;
+        logManager.logError(
+          '后台任务发生错误 ($consecutiveErrors/$maxConsecutiveErrors): $e',
+          stack,
+        );
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          logManager.logError('后台任务连续错误过多，自动停止服务');
+          service.invoke('updateCounters', {
+            'status': '服务异常停止',
+            'latestLog': logManager.getLatestLog(),
+          });
+          timer?.cancel();
+          service.stopSelf();
+        }
+        try {
+          service.invoke('updateCounters', {
+            'status': '任务错误',
+            'latestLog': logManager.getLatestLog(),
+          });
+        } catch (_) {}
+      }
+    });
+  } catch (e, stack) {
+    logManager.logError('后台任务发生致命错误: $e', stack);
+    try {
+      service.invoke('updateCounters', {
+        'status': '服务崩溃',
+        'latestLog': logManager.getLatestLog(),
+      });
+    } catch (invokeError, invokeStack) {
+      logManager.logError('调用 updateCounters 失败: $invokeError', invokeStack);
+    }
+    service.stopSelf();
   }
 }
