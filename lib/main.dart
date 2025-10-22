@@ -189,14 +189,14 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   }
 
-  Future<void> _requestNotificationPermission() async {
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.request();
-      if (status.isDenied) {
-        logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
-      }
-    }
-  }
+  //Future<void> _requestNotificationPermission() async {
+  //  if (Platform.isAndroid) {
+  //    final status = await Permission.notification.request();
+  //    if (status.isDenied) {
+  //      logManager.logWarning('未获得通知权限，可能影响后台服务运行。');
+  //    }
+  //  }
+  //}
 
   @override
   void initState() {
@@ -205,7 +205,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     _listenBackgroundStatus();
     _listenBackgroundLogs();
     _checkServiceStatus();
-    _requestNotificationPermission();
+    //_requestNotificationPermission();
     _checkBatteryOptimization();
   }
 
@@ -641,6 +641,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
 
 // ====== 后台服务初始化（UI 之后） ======
 Future<void> _initBackgroundService() async {
+  await Permission.notification.request();
   final service = FlutterBackgroundService();
   await service.configure(
     androidConfiguration: AndroidConfiguration(
