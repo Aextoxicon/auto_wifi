@@ -15,6 +15,31 @@ const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
 
+// 初始化通知通道 
+Future<void> _initNotificationChannel() async {
+  if (Platform.isAndroid) {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const initSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+    await plugin.initialize(initSettings);
+
+    const channel = AndroidNotificationChannel(
+      CHANNEL_ID,
+      'Auto WIFI Service',
+      description: '用于保持校园网连接的后台服务',
+      importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+}
+
 // ====== 日志管理（全局使用，放在顶部） ======
 class LogManager extends ChangeNotifier {
   static final LogManager _instance = LogManager._internal();
@@ -92,6 +117,7 @@ class LogManager extends ChangeNotifier {
 // ====== 应用入口（现在放在最前面） ======
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initNotificationChannel();
   runApp(const MyApp());
 }
 
@@ -701,28 +727,6 @@ Future<void> _initBackgroundService() async {
     ),
     iosConfiguration: IosConfiguration(),
   );
-
-  if (Platform.isAndroid) {
-    final plugin = FlutterLocalNotificationsPlugin();
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    );
-    await plugin.initialize(initSettings);
-
-    const channel = AndroidNotificationChannel(
-      CHANNEL_ID,
-      'Auto WIFI Service',
-      description: '用于保持校园网连接的后台服务',
-      importance: Importance.high,
-      playSound: false,
-      enableVibration: false,
-    );
-    await plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-  }
 }
 
 // ====== 后台任务逻辑（全部移到最后） ======
