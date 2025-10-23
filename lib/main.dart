@@ -137,7 +137,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   String username = '';
   String password = '';
   String status = '准备就绪';
-  static int time = 0;
+  int time = 3;
   final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
     'normal': 0,
     'reconnect': 0,
@@ -402,6 +402,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                       obscureText: true,
                       decoration: const InputDecoration(labelText: '密码'),
                     ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: timeCtrl,
                       keyboardType: TextInputType.number,
