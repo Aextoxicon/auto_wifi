@@ -861,12 +861,26 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
+<<<<<<< HEAD
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.75,
                   child: ElevatedButton(
                     onPressed: _showExitOptimizationDialog,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 255, 74, 74),
+=======
+                Hero(
+                  tag: 'hero_exit_dialog',
+                  createRectTween: (begin, end) {
+                    // 强制 Hero 沿直线路径飞行
+                    return RectTween(begin: begin, end: end);
+                  },
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.75,
+                    child: ElevatedButton(
+                      onPressed: _showExitOptimizationDialog,
+                      child: const Text('跳转详情页强行停止APP'),
+>>>>>>> parent of 94bb98c (1.6.5+1)
                     ),
                     child: const Text('跳转详情页强行停止APP'),
                   ),
