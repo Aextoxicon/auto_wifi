@@ -137,6 +137,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   String username = '';
   String password = '';
   String status = '准备就绪';
+  static int time = 0;
   final ValueNotifier<Map<String, dynamic>> _countersNotifier = ValueNotifier({
     'normal': 0,
     'reconnect': 0,
@@ -225,33 +226,48 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   }
 
   void _showExitOptimizationDialog() {
-    // [修改] 使用自定义路由代替 showDialog
     Navigator.of(context).push(
       _createHeroDialogRoute(
         Hero(
           tag: 'hero_exit_dialog',
           child: Material(
             type: MaterialType.transparency,
-            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
-            child: Center(
-              child: AlertDialog(
-                title: const Text('关闭服务'),
-                content: const Text('点击强行停止以停止服务,别忘了划掉后台窗口'),
-                actions: [
-                  TextButton(
-                    // [修改] 弹出时使用 Navigator.pop
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // [修改] 弹出时使用 Navigator.pop
-                      Navigator.of(context).pop();
-                      _openAppSettings();
-                    },
-                    child: const Text('去设置'),
-                  ),
-                ],
+            child: Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              // 构建全屏 UI
+              appBar: AppBar(
+                title: const Text('强制关闭服务'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(), // 关闭按钮
+                ),
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '跳转到设置页面，点击强行停止以彻底停止此App以及后台服务，然后别忘了划掉后台窗口',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _openAppSettings();
+                          },
+                          child: const Text('去设置'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20), // 留出底部边距
+                  ],
+                ),
               ),
             ),
           ),
@@ -292,9 +308,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       bool isRunning = await service.isRunning();
       if (isRunning) {
         setState(() => status = '后台已运行');
-      } else {
+      } else if (!isRunning) {
         logManager.log('前台操作 - 检测到服务未运行，尝试自动启动...');
-        final prefs = await SharedPreferences.getInstance();
+        /*final prefs = await SharedPreferences.getInstance();
         final username = prefs.getString('username') ?? '';
         final password = prefs.getString('password') ?? '';
         if (username.isNotEmpty && password.isNotEmpty) {
@@ -305,10 +321,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         } else {
           setState(() => status = '配置缺失，请先设置账号');
           logManager.logWarning('前台操作 - 配置缺失，无法自动启动服务。');
-        }
+        }*/
       }
     } catch (e) {
-      logManager.logError('检查或自动启动服务失败: $e');
       setState(() => status = '服务检查失败');
     }
   }
@@ -353,56 +368,87 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _showConfigDialog() {
     final userCtrl = TextEditingController(text: username);
     final passCtrl = TextEditingController(text: password);
+    final timeCtrl = TextEditingController(text: time.toString());
     // [修改] 使用自定义路由代替 showDialog
     Navigator.of(context).push(
       _createHeroDialogRoute(
         Hero(
           tag: 'hero_config_dialog',
           child: Material(
-            // 必须是 Material 才能正确渲染 Dialog
             type: MaterialType.transparency,
-            // [新增] 使用 Center 确保对话框在 PageRoute 路由中居中
-            child: Center(
-              child: AlertDialog(
-                title: const Text('配置账号'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
+            child: Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
+              appBar: AppBar(
+                title: const Text('配置后台服务'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+
+              body: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TextField(
                       controller: userCtrl,
                       decoration: const InputDecoration(labelText: '用户名'),
                     ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: passCtrl,
                       obscureText: true,
                       decoration: const InputDecoration(labelText: '密码'),
                     ),
+                    TextField(
+                      controller: timeCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '检测间隔（秒）,默认3秒',
+                      ),
+                      onChanged: (value) {
+                        final parsed = int.tryParse(value);
+                        if (parsed != null && parsed > 0) {
+                          time = parsed;
+                        } else {
+                          time = 3;
+                        }
+                      },
+                    ),
+
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            final u = userCtrl.text.trim();
+                            final p = passCtrl.text.trim();
+                            final t = timeCtrl.text.trim();
+                            // 假设 prefs、userCtrl、passCtrl、setState 等在外部定义
+                            prefs.setString('username', u);
+                            prefs.setString('password', p);
+                            prefs.setInt('time', int.tryParse(t) ?? 3);
+                            setState(() {
+                              username = u;
+                              password = p;
+                              time = int.tryParse(t) ?? 3;
+                              configured = u.isNotEmpty;
+                            });
+
+                            _forceStopAllServices();
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('保存'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16), // 底部填充
                   ],
                 ),
-                actions: [
-                  TextButton(
-                    // [修改] 弹出时使用 Navigator.pop
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      final u = userCtrl.text.trim();
-                      final p = passCtrl.text.trim();
-                      prefs.setString('username', u);
-                      prefs.setString('password', p);
-                      setState(() {
-                        username = u;
-                        password = p;
-                        configured = u.isNotEmpty;
-                      });
-                      _forceStopAllServices();
-                      // [修改] 弹出时使用 Navigator.pop
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('保存'),
-                  ),
-                ],
               ),
             ),
           ),
@@ -721,9 +767,11 @@ Future<bool> _backgroundLogin(String username, String password) async {
 Future<bool> _backgroundIsInternetOk() async {
   try {
     logManager.logDebug('后台认证 - 网络检测开始');
+    final prefs = await SharedPreferences.getInstance();
+    final time = await prefs.getInt('time') ?? 3;
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(const Duration(seconds: 1));
+        .timeout(Duration(seconds: time));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
@@ -744,6 +792,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
   Timer? timer;
   int consecutiveErrors = 0;
   const maxConsecutiveErrors = 3;
+  final prefs = await SharedPreferences.getInstance();
+  final time = await prefs.getInt('time') ?? 3;
 
   try {
     logManager.logDebug('后台任务 - 获取 SharedPreferences 实例');
@@ -773,8 +823,9 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int normal = 0;
     int reconnect = 0;
     int fail = 0;
-    logManager.log('后台任务 - 启动定时检测 (1秒周期)');
-    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
+
+    logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
+    timer = Timer.periodic(Duration(seconds: time), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
