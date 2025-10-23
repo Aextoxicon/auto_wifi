@@ -880,6 +880,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     child: ElevatedButton(
                       onPressed: _showExitOptimizationDialog,
                       child: const Text('跳转详情页强行停止APP'),
+<<<<<<< HEAD
+>>>>>>> parent of 94bb98c (1.6.5+1)
+=======
 >>>>>>> parent of 94bb98c (1.6.5+1)
                     ),
                     child: const Text('跳转详情页强行停止APP'),
