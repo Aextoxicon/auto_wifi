@@ -336,7 +336,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         setState(() => status = '后台已运行');
       } else if (!isRunning) {
         logManager.log('前台操作 - 检测到服务未运行，尝试自动启动...');
-        /*final prefs = await SharedPreferences.getInstance();
+        final prefs = await SharedPreferences.getInstance();
         final username = prefs.getString('username') ?? '';
         final password = prefs.getString('password') ?? '';
         if (username.isNotEmpty && password.isNotEmpty) {
@@ -347,7 +347,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         } else {
           setState(() => status = '配置缺失，请先设置账号');
           logManager.logWarning('前台操作 - 配置缺失，无法自动启动服务。');
-        }*/
+        }
       }
     } catch (e) {
       setState(() => status = '服务检查失败');
