@@ -797,8 +797,6 @@ Future<void> backgroundTask(ServiceInstance service) async {
   Timer? timer;
   int consecutiveErrors = 0;
   const maxConsecutiveErrors = 3;
-  final prefs = await SharedPreferences.getInstance();
-  final time = await prefs.getInt('time') ?? 3;
 
   try {
     logManager.logDebug('后台任务 - 获取 SharedPreferences 实例');
@@ -830,7 +828,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int fail = 0;
 
     logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: time), (_) async {
+    timer = Timer.periodic(Duration(seconds: 5), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
