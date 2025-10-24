@@ -617,7 +617,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     return RectTween(begin: begin, end: end);
                   },
                   child: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.75,
+                    width: MediaQuery.of(context).size.width * 0.6,
                     child: ElevatedButton(
                       onPressed: _showConfigDialog,
                       child: const Text('配置'),
@@ -626,7 +626,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.75,
+                  width: MediaQuery.of(context).size.width * 0.6,
                   child: ElevatedButton(
                     onPressed: !configured ? null : _startLoop,
                     child: const Text('开始任务'),
@@ -640,7 +640,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     return RectTween(begin: begin, end: end);
                   },
                   child: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.75,
+                    width: MediaQuery.of(context).size.width * 0.6,
                     child: ElevatedButton(
                       onPressed: _showExitOptimizationDialog,
                       child: const Text('跳转设置强行停止APP'),
@@ -649,7 +649,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.75,
+                  width: MediaQuery.of(context).size.width * 0.6,
                   child: ElevatedButton(
                     onPressed: !configured ? null : _immediateLogin,
                     child: const Text('立即登录'),
