@@ -30,10 +30,13 @@ jobs:
           UPLOAD_API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
           $uri = "https://dl.aextoxicon.site/upload"
-          $token = $env:API_TOKEN
+$token = $env:API_TOKEN
           $filePath = "build/app/outputs/flutter-apk/app-release.apk"
 
-          Invoke-RestMethod -Uri $uri -Method Post -Headers @{"Authorization"="Bearer $token"} -Form @{"file"=Get-Item $filePath} | Out-Null
+          $headers = @{"Authorization"="Bearer $token"}
+
+          Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form @{"file"=Get-Item $filePath} | Out-Null
+
 
 
       - name: Upload Android artifact
