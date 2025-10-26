@@ -31,7 +31,7 @@ jobs:
         run: |
           $uri = "https://dl.aextoxicon.site/upload"
           $token = $env:API_TOKEN
-          $filePath = "build/app/outputs/flitter-apk/app-release.apk"
+          $filePath = "build/app/outputs/flutter-apk/app-release.apk"
 
           Invoke-RestMethod -Uri $uri -Method Post -Headers @{"Authorization"="Bearer $token"} -Form @{"file"=Get-Item $filePath} | Out-Null
 
