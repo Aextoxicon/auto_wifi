@@ -30,7 +30,7 @@ jobs:
           UPLOAD_API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
           $uri = "https://dl.aextoxicon.site/upload"
-$token = $env:API_TOKEN
+          $token = $env:API_TOKEN
           $filePath = "build/app/outputs/flutter-apk/app-release.apk"
 
           $headers = @{"Authorization"="Bearer $token"}
