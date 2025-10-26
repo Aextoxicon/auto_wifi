@@ -32,7 +32,7 @@ jobs:
           curl -v \
             -H "Authorization: Bearer $API_TOKEN" \
             -F "file=@build/app/outputs/flitter-apk/app-release.apk" \
-            https://dl.aextoxicon.site/upload
+            https://dl.aextoxicon.site/upload > /dev/null
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
