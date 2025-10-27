@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 添加 SystemNavigator 导入
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,7 @@ const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
 
-// 初始化通知通道 
+// 初始化通知通道
 Future<void> _initNotificationChannel() async {
   if (Platform.isAndroid) {
     final plugin = FlutterLocalNotificationsPlugin();
@@ -299,6 +300,32 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // 新增：显示退出确认对话框
+  void _showExitConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: const Text('确认关闭'),
+          content: const Text('您确定要关闭App吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                SystemNavigator.pop();
+              },
+              child: const Text('确认'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -633,19 +660,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Hero(
-                  tag: 'hero_exit_dialog',
-                  createRectTween: (begin, end) {
-                    // 强制 Hero 沿直线路径飞行
-                    return RectTween(begin: begin, end: end);
-                  },
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.6,
-                    child: ElevatedButton(
-                      onPressed: _showExitOptimizationDialog,
-                      child: const Text('跳转设置强行停止APP'),
-                    ),
-                  ),
+                ElevatedButton(
+                  onPressed: () => _showExitConfirmationDialog(context),
+                  child: const Text('关闭App'),
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
