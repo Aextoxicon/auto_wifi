@@ -23,8 +23,8 @@ jobs:
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
       - name: echo
-        run: echo ${{ secrets.API_TOKEN }}
-
+        run: echo $API_TOKEN
+        env: API_TOKEN: ${{ secrets.API_TOKEN }}
       - name: build apk
         run: flutter build apk --release
 
