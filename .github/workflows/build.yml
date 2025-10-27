@@ -24,7 +24,8 @@ jobs:
 
       - name: echo
         run: echo $API_TOKEN
-        env: API_TOKEN: ${{ secrets.API_TOKEN }}
+        env: 
+          API_TOKEN: ${{ secrets.API_TOKEN }}
       - name: build apk
         run: flutter build apk --release
 
