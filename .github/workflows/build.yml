@@ -27,7 +27,7 @@ jobs:
 
       - name: Upload to server
         env:
-          UPLOAD_API_TOKEN: ${{ secrets.API_TOKEN }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
           $uri = "https://dl.aextoxicon.site/upload"
           $token = $env:API_TOKEN
