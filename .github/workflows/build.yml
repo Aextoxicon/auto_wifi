@@ -31,9 +31,8 @@ jobs:
         run: |
           curl -v \
             -H "Authorization: Bearer $API_TOKEN" \
-            -F     
-"file=@build/app/outputs/flutter-apk/app-release.apk" \
-                 https://dl.aextoxicon.site/upload
+            -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
+            https://dl.aextoxicon.site/upload
 
 
 
