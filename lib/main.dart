@@ -726,7 +726,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
             'Connection': 'close',
           },
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 3));
 
     logManager.logDebug(
       '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
@@ -806,7 +806,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int fail = 0;
 
     logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: 2), (_) async {
+    timer = Timer.periodic(Duration(seconds: 1), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
