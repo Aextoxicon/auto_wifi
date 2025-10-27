@@ -20,7 +20,7 @@ jobs:
           flutter-version: '3.35.4'
 
       - name: install dep
-        run: flutter clean;flutter pub get;flutter pub run flutter_launcher_icons
+        run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons && cat $API_TOKEN
 
       - name: build apk
         run: flutter build apk --release
