@@ -428,22 +428,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                       obscureText: true,
                       decoration: const InputDecoration(labelText: '密码'),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: timeCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '检测间隔（秒）,默认3秒',
-                      ),
-                      onChanged: (value) {
-                        final parsed = int.tryParse(value);
-                        if (parsed != null && parsed > 0) {
-                          time = parsed;
-                        } else {
-                          time = 3;
-                        }
-                      },
-                    ),
 
                     const Spacer(),
                     Row(
@@ -454,15 +438,11 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                           onPressed: () {
                             final u = userCtrl.text.trim();
                             final p = passCtrl.text.trim();
-                            final t = timeCtrl.text.trim();
-                            // 假设 prefs、userCtrl、passCtrl、setState 等在外部定义
                             prefs.setString('username', u);
                             prefs.setString('password', p);
-                            prefs.setInt('time', int.tryParse(t) ?? 3);
                             setState(() {
                               username = u;
                               password = p;
-                              time = int.tryParse(t) ?? 3;
                               configured = u.isNotEmpty;
                             });
 
@@ -772,11 +752,9 @@ Future<bool> _backgroundLogin(String username, String password) async {
 Future<bool> _backgroundIsInternetOk() async {
   try {
     logManager.logDebug('后台认证 - 网络检测开始');
-    final prefs = await SharedPreferences.getInstance();
-    final time = await prefs.getInt('time') ?? 3;
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(Duration(seconds: time));
+        .timeout(Duration(seconds: 1));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
@@ -828,7 +806,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int fail = 0;
 
     logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: 5), (_) async {
+    timer = Timer.periodic(Duration(seconds: 2), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
