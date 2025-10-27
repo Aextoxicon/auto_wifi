@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: checkout repository
@@ -24,6 +24,15 @@ jobs:
 
       - name: build apk
         run: flutter build apk --release
+
+      - name: Upload APK
+        run: |
+          curl -v \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
+            https://dl.aextoxicon.site/upload
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
