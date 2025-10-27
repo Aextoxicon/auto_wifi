@@ -28,9 +28,9 @@ jobs:
       - name: Upload apk
         run: |
           curl -v \
-               -H "Authorization: Bearer $  {{ secrets.API_TOKEN }}" \
-      -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
-      https://dl.aextoxicon.site/upload
+            -H "Authorization: Bearer $  {{ secrets.API_TOKEN }}" \
+            -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
+            https://dl.aextoxicon.site/upload
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
