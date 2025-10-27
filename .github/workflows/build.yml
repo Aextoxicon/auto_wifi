@@ -32,7 +32,7 @@ jobs:
       - name: Upload apk
         run: |
           curl -v \
-            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
+            --http1.1 -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
             -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
             https://dl.aextoxicon.site/upload
 
