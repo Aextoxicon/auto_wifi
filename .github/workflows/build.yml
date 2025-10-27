@@ -29,13 +29,11 @@ jobs:
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
-          $uri = "https://dl.aextoxicon.site/upload"
-          $token = $env:API_TOKEN
-          $filePath = "build/app/outputs/flutter-apk/app-release.apk"
-
-          $headers = @{"Authorization"="Bearer $token"}
-
-          Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form @{"file"=Get-Item $filePath} | Out-Null
+          curl -v \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -F     
+"file=@build/app/outputs/flutter-apk/app-release.apk" \
+                 https://dl.aextoxicon.site/upload
 
 
 
