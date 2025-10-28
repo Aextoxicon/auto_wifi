@@ -1,1 +1,0 @@
-adb logcat *:E | Select-String -Pattern "flutter|background|service" | Tee-Object -FilePath current_logs.txt
