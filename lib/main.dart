@@ -10,6 +10,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
 import 'package:workmanager/workmanager.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -158,6 +159,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+        _launchURL()
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -188,6 +190,15 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         ],
       ),
     );
+  }
+}
+
+void _launchURL() async {
+  const url = 'https://dl.aextoxicon.site/download/app-release.apk';
+  if (await canLaunchUrl(Uri.parse(url))) {
+    launchUrl(uri, mode: LaunchMode.externalApplication);
+  } else {
+    throw '无法打开 $url';
   }
 }
 
