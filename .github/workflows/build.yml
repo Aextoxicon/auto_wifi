@@ -22,16 +22,12 @@ jobs:
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
-      - name: echo
-        run: echo $API_TOKEN
-        env: 
-          API_TOKEN: ${{ secrets.API_TOKEN }}
       - name: build apk
         run: flutter build apk --release
 
       - name: Upload apk
         run: |
-          curl -v \
+          curl.exe -v \
             --http1.1 -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
             -F "file=@build/app/outputs/flutter-apk/app-release.apk" \
             https://dl.aextoxicon.site/upload

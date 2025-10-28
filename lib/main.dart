@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // 添加 SystemNavigator 导入
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
+import 'package:workmanager/workmanager.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
@@ -39,6 +39,20 @@ Future<void> _initNotificationChannel() async {
         >()
         ?.createNotificationChannel(channel);
   }
+}
+
+Future<void> registerPeriodicTask() async {
+  await Workmanager().registerPeriodicTask(
+    "1", // ID
+    "checkServiceStatusTask", // 任务名称
+    frequency: Duration(minutes: 15),
+    initialDelay: Duration(seconds: 10),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+      requiresBatteryNotLow: true,
+    ),
+  );
+  logManager.log('后台操作 - 注册任务成功');
 }
 
 // ====== 日志管理（全局使用，放在顶部） ======
@@ -115,10 +129,73 @@ class LogManager extends ChangeNotifier {
   }
 }
 
+Future<void> _fetchAndCompareVersion(BuildContext context) async {
+  const remoteVersionUrl = 'https://dl.aextoxicon.site/download/version.txt';
+  final localVersion = '1.6.9'; // 当前应用版本，可从 pubspec.yaml 动态获取
+
+  try {
+    logManager.log('版本检查 - 开始抓取远程版本信息');
+    final response = await http.get(Uri.parse(remoteVersionUrl)).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      final remoteVersion = response.body.trim();
+      logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
+
+      if (remoteVersion == localVersion) {
+        logManager.log('版本检查 - 当前已是最新版本');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('版本检查'),
+            content: const Text('当前已是最新版本'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('版本检查'),
+            content: Text('有新版本可用: $remoteVersion'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  } catch (e, stack) {
+    logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('版本检查失败'),
+        content: const Text('检查更新失败，请检查网络连接'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ====== 应用入口（现在放在最前面） ======
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initNotificationChannel();
+  Workmanager().initialize(registerPeriodicTask);
   runApp(const MyApp());
 }
 
@@ -234,6 +311,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     _listenBackgroundLogs();
     _checkServiceStatus();
     _requestNotificationPermission();
+    registerPeriodicTask();
     _checkBatteryOptimization();
   }
 
@@ -250,7 +328,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         logManager.logWarning('检查电池优化状态失败: $e');
       }
     }
-  }
+  } // 检查是否已关闭电池优化
 
   void _showExitOptimizationDialog() {
     Navigator.of(context).push(
@@ -303,32 +381,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     );
   }
 
-  // 新增：显示退出确认对话框
-  void _showExitConfirmationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text('确认关闭'),
-          content: const Text('您确定要关闭App吗？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                SystemNavigator.pop();
-              },
-              child: const Text('确认'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _showBatteryOptimizationDialog() {
     showDialog(
       context: context,
@@ -368,7 +420,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         final password = prefs.getString('password') ?? '';
         if (username.isNotEmpty && password.isNotEmpty) {
           await _startLoop();
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(seconds: 500));
           bool nowRunning = await service.isRunning();
           setState(() => status = nowRunning ? '后台已运行' : '启动失败');
         } else {
@@ -379,6 +431,13 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     } catch (e) {
       setState(() => status = '服务检查失败');
     }
+  }
+
+  void callbackDispatcher() async {
+    Workmanager().executeTask((task, inputData) {
+      _checkServiceStatus();
+      return Future.value(true); // 返回 true 表示任务成功完成
+    });
   }
 
   void _listenBackgroundStatus() async {
@@ -421,7 +480,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _showConfigDialog() {
     final userCtrl = TextEditingController(text: username);
     final passCtrl = TextEditingController(text: password);
-    final timeCtrl = TextEditingController(text: time.toString());
     // [修改] 使用自定义路由代替 showDialog
     Navigator.of(context).push(
       _createHeroDialogRoute(
@@ -640,11 +698,18 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.6,
-                  child: ElevatedButton(
-                    onPressed: () => _showExitConfirmationDialog(context),
-                    child: const Text('停止任务'),
+                Hero(
+                  tag: 'hero_exit_dialog',
+                  createRectTween: (begin, end) {
+                    // 强制 Hero 沿直线路径飞行
+                    return RectTween(begin: begin, end: end);
+                  },
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    child: ElevatedButton(
+                      onPressed: _showExitOptimizationDialog,
+                      child: const Text('跳转设置强行停止APP'),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -655,6 +720,17 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     child: const Text('立即登录'),
                   ),
                 ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.6,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _fetchAndCompareVersion(context);
+                    },
+                    child: const Text('检查更新'),
+                  ),
+                ),
+                const SizedBox(height: 8),
               ],
             ),
             const SizedBox(height: 20),
@@ -746,7 +822,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
             'Connection': 'close',
           },
         )
-        .timeout(const Duration(seconds: 2));
+        .timeout(const Duration(seconds: 3));
 
     logManager.logDebug(
       '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
@@ -825,7 +901,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int reconnect = 0;
     int fail = 0;
 
-    logManager.log('后台任务 - 启动定时检测 (默认1秒周期)');
+    logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
     timer = Timer.periodic(Duration(seconds: 1), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
