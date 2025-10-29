@@ -10,10 +10,9 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
 import 'package:workmanager/workmanager.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
-//const String TEST_URL = 'http://192.168.31.113:50000/local_connect_test';
+//const String TEST_URL = 'http://192.168.31.101:50000/local_connect_test';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
 
@@ -30,7 +29,7 @@ Future<void> _initNotificationChannel() async {
       CHANNEL_ID,
       'Auto WIFI Service',
       description: '用于保持校园网连接的后台服务',
-      importance: Importance.high,
+      importance: Importance.low,
       playSound: false,
       enableVibration: false,
     );
@@ -42,6 +41,7 @@ Future<void> _initNotificationChannel() async {
   }
 }
 
+@pragma('vm:entry-point')
 Future<void> registerPeriodicTask() async {
   await Workmanager().registerPeriodicTask(
     "1", // ID
@@ -132,7 +132,7 @@ class LogManager extends ChangeNotifier {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://dl.aextoxicon.site/download/version.txt';
-  final localVersion = '1.6.9'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  final localVersion = '1.7.0'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -159,12 +159,11 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        _launchURL();
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('版本检查'),
-            content: Text('有新版本可用: $remoteVersion'),
+            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/download/app-release.apk到浏览器下载更新(长按可复制)'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
@@ -190,15 +189,6 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         ],
       ),
     );
-  }
-}
-
-void _launchURL() async {
-  const url = 'https://dl.aextoxicon.site/download/app-release.apk';
-  if (await canLaunchUrl(Uri.parse(url))) {
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-  } else {
-    throw '无法打开 $url';
   }
 }
 
@@ -821,7 +811,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
   logManager.log('后台认证 - 尝试登录: $username');
   try {
     String url =
-        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        //'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        'http://192.168.31.101:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
     final loginUri = Uri.parse(url);
     logManager.logDebug('后台认证 - 请求 URL: $loginUri');
     final response = await http
