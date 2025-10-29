@@ -22,8 +22,11 @@ jobs:
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
-      - name: build
-        run: flutter build apk --release;flutter build wibdows
+      - name: build exe
+        run: flutter build windows
+
+      - name: build apk
+        run: flutter build apk --release
 
       - name: Upload apk
         shell: cmd
