@@ -28,14 +28,6 @@ jobs:
       - name: build apk
         run: flutter build apk --release
 
-      - name: Upload apk
-        shell: cmd
-        run: |
-          curl.exe -v ^
-            --http1.1 -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" ^
-            -F "file=@build/app/outputs/flutter-apk/app-release.apk" ^
-            https://dl.aextoxicon.site/upload
-
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
