@@ -811,8 +811,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
   logManager.log('后台认证 - 尝试登录: $username');
   try {
     String url =
-        //'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-        'http://192.168.31.101:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        //'http://192.168.31.101:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
     final loginUri = Uri.parse(url);
     logManager.logDebug('后台认证 - 请求 URL: $loginUri');
     final response = await http
