@@ -163,7 +163,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('版本检查'),
-            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/download/app-release.apk到浏览器下载更新(长按可复制)'),
+            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/download/到浏览器下载最新版本(长按可复制)'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
