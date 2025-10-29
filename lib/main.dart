@@ -196,7 +196,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
 void _launchURL() async {
   const url = 'https://dl.aextoxicon.site/download/app-release.apk';
   if (await canLaunchUrl(Uri.parse(url))) {
-    launchUrl(url, mode: LaunchMode.externalApplication);
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   } else {
     throw '无法打开 $url';
   }
@@ -431,7 +431,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         final password = prefs.getString('password') ?? '';
         if (username.isNotEmpty && password.isNotEmpty) {
           await _startLoop();
-          await Future.delayed(const Duration(seconds: 500));
+          await Future.delayed(const Duration(milliseconds: 500));
           bool nowRunning = await service.isRunning();
           setState(() => status = nowRunning ? '后台已运行' : '启动失败');
         } else {
