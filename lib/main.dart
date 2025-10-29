@@ -913,7 +913,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int fail = 0;
 
     logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: 1), (_) async {
+    timer = Timer.periodic(Duration(seconds: 3), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
