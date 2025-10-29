@@ -159,7 +159,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        _launchURL()
+        _launchURL();
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -196,7 +196,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
 void _launchURL() async {
   const url = 'https://dl.aextoxicon.site/download/app-release.apk';
   if (await canLaunchUrl(Uri.parse(url))) {
-    launchUrl(uri, mode: LaunchMode.externalApplication);
+    launchUrl(url, mode: LaunchMode.externalApplication);
   } else {
     throw '无法打开 $url';
   }
