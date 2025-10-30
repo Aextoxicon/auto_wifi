@@ -22,17 +22,8 @@ jobs:
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
-      - name: build exe
-        run: flutter build windows
-
       - name: build apk
         run: flutter build apk --release
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: win-release
-          path: build\windows\x64\runner\Release
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4

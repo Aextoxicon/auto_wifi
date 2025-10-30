@@ -131,8 +131,8 @@ class LogManager extends ChangeNotifier {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://dl.aextoxicon.site/download/version.txt';
-  final localVersion = '1.7.0'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  const remoteVersionUrl = 'https://dl.aextoxicon.site/version.txt';
+  final localVersion = '1.7.1'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -163,7 +163,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('版本检查'),
-            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/download/到浏览器下载最新版本(长按可复制)'),
+            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/到浏览器下载最新版本(长按可复制)'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
@@ -331,53 +331,22 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     }
   } // 检查是否已关闭电池优化
 
-  void _showExitOptimizationDialog() {
-    Navigator.of(context).push(
-      _createHeroDialogRoute(
-        Hero(
-          tag: 'hero_exit_dialog',
-          child: Material(
-            type: MaterialType.transparency,
-            child: Scaffold(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              // 构建全屏 UI
-              appBar: AppBar(
-                title: const Text('强制关闭服务'),
-                leading: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(), // 关闭按钮
-                ),
-              ),
-              body: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '跳转到设置页面，点击强行停止以彻底停止此App以及后台服务，然后别忘了划掉后台窗口',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const Spacer(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _openAppSettings();
-                          },
-                          child: const Text('去设置'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20), // 留出底部边距
-                  ],
-                ),
-              ),
-            ),
+  void _showExitDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('强制关闭服务'),
+        content: const Text('跳转到设置页面，点击强行停止以彻底停止此App以及后台服务，然后别忘了划掉后台窗口'),
+        actions: [
+          TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _openAppSettings();
+            },
+            child: const Text('去设置'),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -708,7 +677,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.6,
                     child: ElevatedButton(
-                      onPressed: _showExitOptimizationDialog,
+                      onPressed: _showExitDialog,
                       child: const Text('跳转设置强行停止APP'),
                     ),
                   ),
