@@ -25,8 +25,17 @@ jobs:
       - name: build apk
         run: flutter build apk --release
 
+      - name: build golang
+        run: cd golang(Windows);build.ps1
+
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Golang artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-release
+          path: golang(Windows)/bin/

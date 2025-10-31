@@ -47,7 +47,6 @@ Future<void> registerPeriodicTask() async {
     "1", // ID
     "checkServiceStatusTask", // 任务名称
     frequency: Duration(minutes: 15),
-    initialDelay: Duration(seconds: 10),
     constraints: Constraints(
       networkType: NetworkType.connected,
       requiresBatteryNotLow: true,
@@ -132,11 +131,13 @@ class LogManager extends ChangeNotifier {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://dl.aextoxicon.site/version.txt';
-  final localVersion = '1.7.1'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  final localVersion = '1.7.3'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
-    final response = await http.get(Uri.parse(remoteVersionUrl)).timeout(const Duration(seconds: 5));
+    final response = await http
+        .get(Uri.parse(remoteVersionUrl))
+        .timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       final remoteVersion = response.body.trim();
@@ -163,7 +164,9 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('版本检查'),
-            content: SelectableText('有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/到浏览器下载最新版本(长按可复制)'),
+            content: SelectableText(
+              '有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/到浏览器下载最新版本(长按可复制)',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
@@ -781,7 +784,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
   try {
     String url =
         'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-        //'http://192.168.31.101:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+    //'http://192.168.31.101:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
     final loginUri = Uri.parse(url);
     logManager.logDebug('后台认证 - 请求 URL: $loginUri');
     final response = await http
@@ -873,7 +876,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int fail = 0;
 
     logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: 3), (_) async {
+    timer = Timer.periodic(Duration(seconds: 2), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
