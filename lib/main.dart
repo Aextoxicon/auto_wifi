@@ -131,7 +131,7 @@ class LogManager extends ChangeNotifier {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://dl.aextoxicon.site/version.txt';
-  final localVersion = '1.7.3'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  final localVersion = '1.7.4'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -796,7 +796,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
             'Connection': 'close',
           },
         )
-        .timeout(const Duration(seconds: 3));
+        .timeout(const Duration(seconds: 2));
 
     logManager.logDebug(
       '后台认证 - 响应状态: ${response.statusCode}, 内容: ${response.body}',
@@ -875,8 +875,8 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int reconnect = 0;
     int fail = 0;
 
-    logManager.log('后台任务 - 启动定时检测 (默认3秒周期)');
-    timer = Timer.periodic(Duration(seconds: 2), (_) async {
+    logManager.log('后台任务 - 启动定时检测 (默认1秒周期)');
+    timer = Timer.periodic(Duration(seconds: 1), (_) async {
       logManager.logDebug('后台任务 - 定时检测循环开始');
       try {
         final username = prefs.getString('username') ?? '';
