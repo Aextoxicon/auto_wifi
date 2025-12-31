@@ -130,7 +130,7 @@ class LogManager extends ChangeNotifier {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://dl.aextoxicon.site/version.txt';
+  const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
   final localVersion = '1.7.4'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
@@ -165,7 +165,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
           builder: (ctx) => AlertDialog(
             title: const Text('版本检查'),
             content: SelectableText(
-              '有新版本可用: $remoteVersion，请复制https://dl.aextoxicon.site/到浏览器下载最新版本(长按可复制)',
+              '有新版本可用: $remoteVersion，请复制https://update.aextoxicon.site/base.apk到浏览器下载最新版本(长按可复制)',
             ),
             actions: [
               TextButton(
