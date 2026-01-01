@@ -12,6 +12,7 @@ import "package:android_intent_plus/android_intent.dart";
 import 'package:workmanager/workmanager.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:version/version.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.101:50000/local_connect_test';
@@ -149,6 +150,10 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
       ),
     );
 
+    // 获取私有目录路径并保存文件
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = '${directory.path}/base.apk';
+    final file = File(filePath);
     // 下载 APK 文件
     final response = await http.get(Uri.parse(apkUrl));
     if (response.statusCode != 200) {
@@ -158,11 +163,6 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
       );
       return;
     }
-
-    // 获取私有目录路径并保存文件
-    final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/update.apk';
-    final file = File(filePath);
     await file.writeAsBytes(response.bodyBytes);
 
     Navigator.of(context).pop(); // 关闭对话框
@@ -197,7 +197,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-  final localVersion = '1.7.4'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  final localVersion = '1.7.5'; // 当前应用版本，可从 pubspec.yaml 动态获取
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -209,7 +209,10 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
       final remoteVersion = response.body.trim();
       logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
-      if (remoteVersion == localVersion) {
+      final remote = Version.parse(remoteVersion);
+      final local = Version.parse(localVersion);
+
+      if (remote <= local) {
         logManager.log('版本检查 - 当前已是最新版本');
         showDialog(
           context: context,
@@ -681,7 +684,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI')),
+      appBar: AppBar(title: const Text('Auto-WIFI 1.7.5')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
