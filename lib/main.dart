@@ -10,11 +10,20 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
 import 'package:workmanager/workmanager.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.101:50000/local_connect_test';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _initNotificationChannel();
+  Workmanager().initialize(registerPeriodicTask);
+  runApp(const MyApp());
+}
 
 // 初始化通知通道
 Future<void> _initNotificationChannel() async {
@@ -129,6 +138,63 @@ class LogManager extends ChangeNotifier {
   }
 }
 
+Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
+  try {
+    // 显示下载进度对话框
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('检测到新版本，正在下载'),
+        content: const LinearProgressIndicator(),
+      ),
+    );
+
+    // 下载 APK 文件
+    final response = await http.get(Uri.parse(apkUrl));
+    if (response.statusCode != 200) {
+      Navigator.of(context).pop(); // 关闭对话框
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('下载失败，请稍后重试')),
+      );
+      return;
+    }
+
+    // 获取私有目录路径并保存文件
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = '${directory.path}/update.apk';
+    final file = File(filePath);
+    await file.writeAsBytes(response.bodyBytes);
+
+    Navigator.of(context).pop(); // 关闭对话框
+
+    // 调用系统安装器安装 APK
+    final result = await OpenFilex.open(filePath, type: "application/vnd.android.package-archive");
+
+    // 检查安装结果
+    if (result.message != null && result.message!.contains('Success')) {
+      logManager.log('安装器调用成功');
+
+      // 删除安装包
+      try {
+        await file.delete();
+        logManager.log('安装包已删除');
+      } catch (deleteError) {
+        logManager.logWarning('删除安装包失败: $deleteError');
+      }
+    } else {
+      logManager.logWarning('安装器调用失败: ${result.message}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('安装失败: ${result.message}')),
+      );
+    }
+  } catch (e, stack) {
+    logManager.logError('下载或安装 APK 时发生异常: $e', stack);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('发生错误: $e')),
+    );
+  }
+}
+
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
   final localVersion = '1.7.4'; // 当前应用版本，可从 pubspec.yaml 动态获取
@@ -160,21 +226,8 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('版本检查'),
-            content: SelectableText(
-              '有新版本可用: $remoteVersion，请复制https://update.aextoxicon.site/base.apk到浏览器下载最新版本(长按可复制)',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        );
+        String apkUrl = 'https://update.aextoxicon.site/base.apk';
+        _downloadAndInstallApk(apkUrl, context);
       }
     }
   } catch (e, stack) {
@@ -193,14 +246,6 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
       ),
     );
   }
-}
-
-// ====== 应用入口（现在放在最前面） ======
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await _initNotificationChannel();
-  Workmanager().initialize(registerPeriodicTask);
-  runApp(const MyApp());
 }
 
 // ====== UI 部分 ======
