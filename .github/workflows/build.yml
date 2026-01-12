@@ -1,4 +1,4 @@
-name: build
+name: build for windows
 
 on:
   push:
@@ -22,20 +22,11 @@ jobs:
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
-      - name: build apk
-        run: flutter build apk --release
+      - name: build windows
+        run: flutter build windows
 
-      #- name: build golang
-        #run: cd golang(Windows);build.ps1
-
-      - name: Upload Android artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload Golang artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: go-release
-          path: golang(Windows)/bin/
+          name: windows-release
+          path: build/windows/runner/Release/
