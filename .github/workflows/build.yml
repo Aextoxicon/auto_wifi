@@ -25,6 +25,12 @@ jobs:
       - name: build windows
         run: flutter build windows
 
+      - name: Upload Windows zip
+        env: 
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+        run: |
+          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@build/windows/runner/Release/auto_wifi.zip"
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
