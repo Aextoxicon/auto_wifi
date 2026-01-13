@@ -199,8 +199,8 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-  final localVersion = '1.7.5'; // 当前应用版本，可从 pubspec.yaml 动态获取
+  const remoteVersionUrl = 'https://update.aextoxicon.site/download/version.txt';
+  final localVersion = '1.7.6'; // version
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -232,7 +232,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site/base.apk';
+        String apkUrl = 'https://update.aextoxicon.site/download/base.apk';
         _downloadAndInstallApk(apkUrl, context);
       }
     }
@@ -700,7 +700,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI 1.7.5')),
+      appBar: AppBar(title: const Text('Auto-WIFI 1.7.6')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -869,7 +869,6 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       setState(() => status = '请先配置账号');
       return;
     }
-
     // 桌面端不需要后台服务，直接在前台运行
     _runPCTask();
   }
@@ -1016,8 +1015,8 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-    final localVersion = '1.7.5';
+    const remoteVersionUrl = 'https://update.aextoxicon.site/download/version.txt';
+    final localVersion = '1.7.6';
 
     try {
       final response = await http
@@ -1036,7 +1035,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
         } else {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('有新版本可用: $remoteVersion')));
+          ).showSnackBar(SnackBar(content: Text('有新版本可用: $remoteVersion,请到https://update.aextoxicon.site/下载')));
           // 桌面端不自动下载安装，只提示用户
         }
       }
@@ -1050,7 +1049,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI PC 1.7.5')),
+      appBar: AppBar(title: const Text('Auto-WIFI PC 1.7.6')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
