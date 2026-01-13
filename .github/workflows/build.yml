@@ -29,7 +29,7 @@ jobs:
         env: 
           API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
-          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@build/windows/runner/Release/auto_wifi.zip"
+          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@build/windows/runner/Release/auto_wifi.zip" https://update.aextoxicon.site/upload
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
