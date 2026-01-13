@@ -199,8 +199,8 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://update.aextoxicon.site/download/version.txt';
-  final localVersion = '1.7.6'; // version
+  const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
+  final localVersion = '1.7.7'; // version
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -232,7 +232,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site/download/base.apk';
+        String apkUrl = 'https://update.aextoxicon.site/base.apk';
         _downloadAndInstallApk(apkUrl, context);
       }
     }
@@ -700,7 +700,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI 1.7.6')),
+      appBar: AppBar(title: const Text('Auto-WIFI 1.7.7')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1015,8 +1015,8 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'https://update.aextoxicon.site/download/version.txt';
-    final localVersion = '1.7.6';
+    const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
+    final localVersion = '1.7.7';
 
     try {
       final response = await http
@@ -1049,7 +1049,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI PC 1.7.6')),
+      appBar: AppBar(title: const Text('Auto-WIFI PC 1.7.7')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
