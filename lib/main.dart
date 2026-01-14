@@ -14,8 +14,8 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
 
-//const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
-const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
+const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
+//const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
 const String CHANNEL_ID = 'autowifi_channel';
 final logManager = LogManager();
 
@@ -152,7 +152,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
     // 获取私有目录路径并保存文件
     final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/base.apk';
+    final filePath = '${directory.path}/auto_wifi_android.apk';
     final file = File(filePath);
     // 下载 APK 文件
     final response = await http.get(Uri.parse(apkUrl));
@@ -200,7 +200,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-  final localVersion = '1.7.7'; // version
+  final localVersion = '1.8.0'; // version
 
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -232,7 +232,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site/base.apk';
+        String apkUrl = 'https://update.aextoxicon.site/auto_wifi_android.apk';
         _downloadAndInstallApk(apkUrl, context);
       }
     }
@@ -700,7 +700,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI 1.7.7')),
+      appBar: AppBar(title: const Text('Auto-WIFI 1.8.0')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -912,8 +912,8 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   Future<bool> _pcLogin(String username, String password) async {
     try {
       String url =
-          //'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-          'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+          'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+          //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
       final loginUri = Uri.parse(url);
       final response = await http
           .get(
@@ -1016,7 +1016,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
 
   Future<void> _fetchAndCompareVersion() async {
     const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-    final localVersion = '1.7.7';
+    final localVersion = '1.8.0';
 
     try {
       final response = await http
@@ -1049,7 +1049,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI PC 1.7.7')),
+      appBar: AppBar(title: const Text('Auto-WIFI PC 1.8.0')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1170,8 +1170,8 @@ Future<bool> _backgroundLogin(String username, String password) async {
   logManager.log('后台认证 - 尝试登录: $username');
   try {
     String url =
-        //'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-        'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+        //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
     final loginUri = Uri.parse(url);
     logManager.logDebug('后台认证 - 请求 URL: $loginUri');
     final response = await http

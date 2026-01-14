@@ -1,4 +1,4 @@
-name: build for windows
+name: build for windows and android
 
 on:
   push:
@@ -14,6 +14,15 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -25,6 +34,9 @@ jobs:
       - name: build windows
         run: flutter build windows
 
+      - name: build android
+        run: flutter build apk
+
       - name: Upload Windows zip
         env: 
           API_TOKEN: ${{ secrets.API_TOKEN }}
@@ -32,8 +44,8 @@ jobs:
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "auto_wifi_win.zip"
           curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@auto_wifi_win.zip" https://update.aextoxicon.site/upload
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: auto_wifi_win
-          path: build/windows/x64/runner/Release/
+      - name: Upload Android apk
+        env: 
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+        run: |
+          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://update.aextoxicon.site/upload
