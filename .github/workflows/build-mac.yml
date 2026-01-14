@@ -27,7 +27,7 @@ jobs:
 
             - name: Upload macos zip
               env: 
-                  API_TOKEN: secrets.API_TOKEN
+                  API_TOKEN: ${{ secrets.API_TOKEN }}
               run: |
                 zip -r -X auto_wifi_mac.zip build/macos/Build/Products/Release/auto_wifi.app
                 curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@auto_wifi_mac.zip" https://update.aextoxicon.site/upload

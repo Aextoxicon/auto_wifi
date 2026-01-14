@@ -39,13 +39,13 @@ jobs:
 
       - name: Upload Windows zip
         env: 
-          API_TOKEN: secrets.API_TOKEN
+          API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "auto_wifi_win.zip"
-          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@auto_wifi_win.zip" https://update.aextoxicon.site/upload
+          curl -X POST -H "Authorization: Bearer $env:API_TOKEN" -F "file=@auto_wifi_win.zip" https://update.aextoxicon.site/upload
 
       - name: Upload Android apk
         env: 
           API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
-          curl -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://update.aextoxicon.site/upload
+          curl -X POST -H "Authorization: Bearer $env:API_TOKEN" -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://update.aextoxicon.site/upload
