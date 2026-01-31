@@ -24,6 +24,7 @@ jobs:
           flutter-version: "3.35.4"
 
       - name: Extract app version with validation
+        id: extract_version
         run: |
           VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -31,7 +32,22 @@ jobs:
             exit 1
           fi
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
+          
+          echo "$VERSION" > version.txt
+          echo "Created version.txt with content: $(cat version.txt)"
+
+      - name: Upload version.txt to file server
+        run: |
+          curl --http1.1 -X POST \
+            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
+            -F "file=@version.txt" \
+            "${{ secrets.UPLOAD_URL }}"
+          echo "Successfully uploaded version.txt to file server using provided command format"
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
 
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
@@ -49,17 +65,17 @@ jobs:
           if gh release view "v${{ env.APP_VERSION }}" >/dev/null 2>&1; then
             echo "Release v${{ env.APP_VERSION }} already exists"
             echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
-            echo "::set-output name=exists::true"
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "Release v${{ env.APP_VERSION }} does not exist"
             echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
-            echo "::set-output name=exists::false"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create tag if needed
-        if: ${{ env.RELEASE_EXISTS == 'false' }}
+      - name: Create tag and release with version file
+        if: ${{ steps.check_release.outputs.exists == 'false' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -69,28 +85,20 @@ jobs:
             git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
           fi
           git push origin "v${{ env.APP_VERSION }}"
-
-      - name: Create new release with file
-        if: ${{ env.RELEASE_EXISTS == 'false' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.APP_VERSION }}
-          name: Release v${{ env.APP_VERSION }}
-          body: |
-            ## Release v${{ env.APP_VERSION }}
-            
-            Automated release for macOS platform.
-            
-            ### Included files:
-            - macOS application package
-          files: eureka_mac.zip
+          
+          gh release create "v${{ env.APP_VERSION }}" \
+            --title "Release v${{ env.APP_VERSION }}" \
+            --notes "Automated release for macOS platform. Includes version.txt for cross-workflow version sharing." \
+            version.txt \
+            eureka_mac.zip
+          echo "Successfully created release with version.txt and mac file"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload additional file to existing release
-        if: ${{ env.RELEASE_EXISTS == 'true' }}
+        if: ${{ steps.check_release.outputs.exists == 'true' }}
         run: |
-          gh release upload "v${{ env.APP_VERSION }}" eureka_mac.zip --clobber
-          echo "Successfully uploaded macOS file to existing release"
+          gh release upload "v${{ env.APP_VERSION }}" version.txt eureka_mac.zip --clobber
+          echo "Successfully uploaded version.txt and macOS file to existing release"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

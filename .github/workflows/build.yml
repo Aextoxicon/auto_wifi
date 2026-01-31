@@ -32,36 +32,72 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
-      - name: Extract app version with error handling
-        id: extract_version
+      - name: Download version.txt from file server using PowerShell
+        id: get_version
         run: |
-          # 更加健壮的版本提取方法
           try {
-            $content = Get-Content "pubspec.yaml" -ErrorAction Stop
-            $versionLine = $content | Where-Object { $_ -match "^version:" }
-            if ($versionLine) {
-              $cleanLine = $versionLine -replace "^version:\s*", ""
-              $VERSION = $cleanLine -split "\+" | Select-Object -First 1
-              $VERSION = $VERSION.Trim()
+            $serverUrl = $env:UPLOAD_URL
+            $apiToken = $env:API_TOKEN
+            
+            $downloadUrl = "${serverUrl}/version.txt"
+            
+            $headers = @{
+              "Authorization" = "Bearer ${apiToken}"
+              "User-Agent" = "GitHub-Actions/1.0"
+            }
+            
+            Write-Host "Downloading version.txt from: $downloadUrl"
+            
+            $response = Invoke-WebRequest -Uri $downloadUrl -Method GET -Headers $headers -UseBasicParsing
+            
+            $response.Content | Out-File -FilePath "version.txt" -Encoding UTF8
+            
+            if (Test-Path "version.txt") {
+              $VERSION = Get-Content "version.txt" -Raw | ForEach-Object { $_.Trim() }
               if ($VERSION -and $VERSION -match "^\d+\.\d+\.\d+$") {
-                echo "Extracted version: $VERSION"
                 echo "APP_VERSION=$VERSION" >> $env:GITHUB_ENV
-                echo "::set-output name=version::$VERSION"
+                echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+                Write-Host "Successfully extracted version from file server: $VERSION"
               } else {
-                throw "Invalid version format: $VERSION"
+                throw "Invalid version format in version.txt: '$VERSION'"
               }
             } else {
-              throw "Version line not found in pubspec.yaml"
+              throw "version.txt not downloaded successfully"
             }
           } catch {
-            Write-Error "Failed to extract version: $_"
-            exit 1
+            Write-Warning "Failed to download version.txt from file server: $($_.Exception.Message)"
+            Write-Host "Falling back to extracting version from pubspec.yaml"
+            
+            try {
+              $content = Get-Content "pubspec.yaml" -ErrorAction Stop
+              $versionLine = $content | Where-Object { $_ -match "^version:" }
+              if ($versionLine) {
+                $cleanLine = $versionLine -replace "^version:\s*", ""
+                $VERSION = $cleanLine -split "\+" | Select-Object -First 1
+                $VERSION = $VERSION.Trim()
+                if ($VERSION -and $VERSION -match "^\d+\.\d+\.\d+$") {
+                  echo "APP_VERSION=$VERSION" >> $env:GITHUB_ENV
+                  echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+                  Write-Host "Extracted version from pubspec.yaml: $VERSION"
+                } else {
+                  throw "Invalid version format: $VERSION"
+                }
+              } else {
+                throw "Version line not found in pubspec.yaml"
+              }
+            } catch {
+              Write-Error "Failed to extract version from pubspec.yaml: $($_.Exception.Message)"
+              exit 1
+            }
           }
+        env:
+          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
 
       - name: Debug version info
         run: |
-          echo "APP_VERSION from env: ${{ env.APP_VERSION }}"
-          echo "Version from step output: ${{ steps.extract_version.outputs.version }}"
+          Write-Host "APP_VERSION from env: ${{ env.APP_VERSION }}"
+          Write-Host "Version from step output: ${{ steps.get_version.outputs.version }}"
 
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
@@ -81,33 +117,31 @@ jobs:
         run: |
           try {
             $tagName = "v${{ env.APP_VERSION }}"
-            # 使用GitHub CLI检查release是否存在
             gh release view "$tagName" > $null 2>&1
             if ($LASTEXITCODE -eq 0) {
               echo "Release $tagName already exists"
               echo "RELEASE_EXISTS=true" >> $env:GITHUB_ENV
-              echo "::set-output name=exists::true"
+              echo "exists=true" >> $env:GITHUB_OUTPUT
             } else {
               echo "Release $tagName does not exist"
               echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
-              echo "::set-output name=exists::false"
+              echo "exists=false" >> $env:GITHUB_OUTPUT
             }
           } catch {
             Write-Warning "Failed to check release: $_"
             echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
-            echo "::set-output name=exists::false"
+            echo "exists=false" >> $env:GITHUB_OUTPUT
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create tag if needed
-        if: ${{ env.RELEASE_EXISTS == 'false' }}
+        if: ${{ steps.check_release.outputs.exists == 'false' }}
         run: |
           try {
             $tagName = "v${{ env.APP_VERSION }}"
             git config --global user.name 'github-actions[bot]'
             git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-            
             if (git tag --list | Where-Object { $_ -eq $tagName }) {
               Write-Host "Local tag $tagName already exists"
             } else {
@@ -121,11 +155,19 @@ jobs:
           }
 
       - name: Create new release with files
-        if: ${{ env.RELEASE_EXISTS == 'false' }}
+        if: ${{ steps.check_release.outputs.exists == 'false' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}
           name: Release v${{ env.APP_VERSION }}
+          body: |
+            ## Release v${{ env.APP_VERSION }}
+            
+            Automated release for Windows and Android platforms.
+            
+            ### Included files:
+            - Windows executable package
+            - Android APK
           files: |
             eureka_win.zip
             build/app/outputs/flutter-apk/app-release.apk
@@ -133,7 +175,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload additional files to existing release
-        if: ${{ env.RELEASE_EXISTS == 'true' }}
+        if: ${{ steps.check_release.outputs.exists == 'true' }}
         run: |
           try {
             $tagName = "v${{ env.APP_VERSION }}"
