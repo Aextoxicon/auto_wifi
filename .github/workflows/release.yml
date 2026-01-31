@@ -26,7 +26,7 @@ jobs:
 
       - name: Wait for all builds to complete
         run: |
-          sleep 600
+          sleep 120
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -43,20 +43,23 @@ jobs:
         run: |
           mkdir -p ./release_files
           
+          # 处理Mac应用
           if [ -d "./artifacts/eureka_mac" ]; then
             cd ./artifacts/eureka_mac
-            zip -r ../../release_files/eureka-mac.zip .
+            zip -r ../../release_files/eureka-mac-v${{ env.APP_VERSION }}.zip .
             cd ../..
           fi
           
+          # 处理Windows应用
           if [ -d "./artifacts/eureka_win" ]; then
             cd ./artifacts/eureka_win
-            zip -r ../../release_files/eureka-windows.zip .
+            zip -r ../../release_files/eureka-windows-v${{ env.APP_VERSION }}.zip .
             cd ../..
           fi
           
+          # 处理Android APK
           if [ -f "./artifacts/app-release/app-release.apk" ]; then
-            cp ./artifacts/app-release/app-release.apk ./release_files/app-release.apk
+            cp ./artifacts/app-release/app-release.apk ./release_files/eureka-android-v${{ env.APP_VERSION }}.apk
           fi
           
           echo "Processed files:"

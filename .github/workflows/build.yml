@@ -32,6 +32,37 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
+      - name: Extract app version with error handling
+        id: extract_version
+        run: |
+          # 更加健壮的版本提取方法
+          try {
+            $content = Get-Content "pubspec.yaml" -ErrorAction Stop
+            $versionLine = $content | Where-Object { $_ -match "^version:" }
+            if ($versionLine) {
+              $cleanLine = $versionLine -replace "^version:\s*", ""
+              $VERSION = $cleanLine -split "\+" | Select-Object -First 1
+              $VERSION = $VERSION.Trim()
+              if ($VERSION -and $VERSION -match "^\d+\.\d+\.\d+$") {
+                echo "Extracted version: $VERSION"
+                echo "APP_VERSION=$VERSION" >> $env:GITHUB_ENV
+                echo "::set-output name=version::$VERSION"
+              } else {
+                throw "Invalid version format: $VERSION"
+              }
+            } else {
+              throw "Version line not found in pubspec.yaml"
+            }
+          } catch {
+            Write-Error "Failed to extract version: $_"
+            exit 1
+          }
+
+      - name: Debug version info
+        run: |
+          echo "APP_VERSION from env: ${{ env.APP_VERSION }}"
+          echo "Version from step output: ${{ steps.extract_version.outputs.version }}"
+
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
@@ -41,25 +72,76 @@ jobs:
       - name: build android
         run: flutter build apk
 
-      - name: Create and push git tag
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
-          git push origin "v${{ env.APP_VERSION }}"
-
       - name: Package Windows build
         run: |
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
 
-      - name: Upload windows build files
-        uses: actions/upload-artifact@v4
-        with:
-            name: eureka_win
-            path: build/windows/x64/runner/Release/
+      - name: Check if release already exists
+        id: check_release
+        run: |
+          try {
+            $tagName = "v${{ env.APP_VERSION }}"
+            # 使用GitHub CLI检查release是否存在
+            gh release view "$tagName" > $null 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              echo "Release $tagName already exists"
+              echo "RELEASE_EXISTS=true" >> $env:GITHUB_ENV
+              echo "::set-output name=exists::true"
+            } else {
+              echo "Release $tagName does not exist"
+              echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
+              echo "::set-output name=exists::false"
+            }
+          } catch {
+            Write-Warning "Failed to check release: $_"
+            echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
+            echo "::set-output name=exists::false"
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload android build files
-        uses: actions/upload-artifact@v4
+      - name: Create tag if needed
+        if: ${{ env.RELEASE_EXISTS == 'false' }}
+        run: |
+          try {
+            $tagName = "v${{ env.APP_VERSION }}"
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            
+            if (git tag --list | Where-Object { $_ -eq $tagName }) {
+              Write-Host "Local tag $tagName already exists"
+            } else {
+              git tag -a "$tagName" -m "Release $tagName"
+            }
+            git push origin "$tagName"
+            echo "Successfully created and pushed tag: $tagName"
+          } catch {
+            Write-Error "Failed to create tag: $_"
+            exit 1
+          }
+
+      - name: Create new release with files
+        if: ${{ env.RELEASE_EXISTS == 'false' }}
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          files: |
+            eureka_win.zip
+            build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload additional files to existing release
+        if: ${{ env.RELEASE_EXISTS == 'true' }}
+        run: |
+          try {
+            $tagName = "v${{ env.APP_VERSION }}"
+            gh release upload "$tagName" eureka_win.zip build/app/outputs/flutter-apk/app-release.apk --clobber
+            echo "Successfully uploaded files to existing release: $tagName"
+          } catch {
+            Write-Error "Failed to upload files to existing release: $_"
+            exit 1
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
