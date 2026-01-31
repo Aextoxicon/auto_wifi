@@ -57,13 +57,14 @@ jobs:
         run: |
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
 
-      - name: Create GitHub Release and upload builds
-        uses: softprops/action-gh-release@v2
+      - name: Upload windows build files
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: v${{ env.APP_VERSION }}
-          name: Release v${{ env.APP_VERSION }}
-          files: |
-            eureka_win.zip
-            build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            name: eureka_win
+            path: build/windows/x64/runner/Release/
+
+      - name: Upload android build files
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk

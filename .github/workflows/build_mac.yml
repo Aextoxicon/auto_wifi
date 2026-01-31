@@ -41,15 +41,9 @@ jobs:
           git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
           git push origin "v${{ env.APP_VERSION }}"
 
-      - name: Zip built app
-        run: |
-          zip -r -X eureka_mac.zip build/macos/Build/Products/Release/eureka.app
-
-      - name: Create GitHub Release and upload app
-        uses: softprops/action-gh-release@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: v${{ env.APP_VERSION }}
-          name: Release v${{ env.APP_VERSION }}
-          files: eureka_mac.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: eureka_mac
+          path: build/macos/Build/Products/Release/eureka.app
+          retention-days: 1
