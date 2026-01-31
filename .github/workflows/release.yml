@@ -25,16 +25,42 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Wait for all builds to complete
-        run: sleep 60
+        run: |
+          sleep 600
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
     
-      - name:  Unzip android artifacts
+      - name: Check downloaded artifacts
         run: |
-          cd ./artifacts && unzip app-release.zip && rm app-release.zip
+          echo "Downloaded artifacts:"
+          find ./artifacts -type f
+          ls -la ./artifacts/
+
+      - name: Process artifacts for release
+        run: |
+          mkdir -p ./release_files
+          
+          if [ -d "./artifacts/eureka_mac" ]; then
+            cd ./artifacts/eureka_mac
+            zip -r ../../release_files/eureka-mac.zip .
+            cd ../..
+          fi
+          
+          if [ -d "./artifacts/eureka_win" ]; then
+            cd ./artifacts/eureka_win
+            zip -r ../../release_files/eureka-windows.zip .
+            cd ../..
+          fi
+          
+          if [ -f "./artifacts/app-release/app-release.apk" ]; then
+            cp ./artifacts/app-release/app-release.apk ./release_files/app-release.apk
+          fi
+          
+          echo "Processed files:"
+          ls -la ./release_files/
 
       - name: Check if release exists
         id: check_release
@@ -52,10 +78,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}
-          name: ${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
           draft: false
           prerelease: false
           files: |
-            ./artifacts/*
+            ./release_files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
