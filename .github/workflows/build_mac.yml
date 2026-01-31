@@ -23,23 +23,11 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
-      - name: Extract app version
-        run: |
-          VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
       - name: build macos
         run: flutter build macos
-
-      - name: Create and push git tag
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
-          git push origin "v${{ env.APP_VERSION }}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

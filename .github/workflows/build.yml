@@ -32,11 +32,6 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
-      - name: Extract app version
-        run: |
-          $VERSION = Select-String -Path "pubspec.yaml" -Pattern "^version:" | ForEach-Object { ($_ -split ":")[1].Trim() } | ForEach-Object { ($_ -split "\+")[0] }
-          echo "APP_VERSION=$VERSION" >> $env:GITHUB_ENV
-
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
