@@ -1,4 +1,4 @@
-# auto_wifi
+# eureka
 
 A new Flutter project.
 

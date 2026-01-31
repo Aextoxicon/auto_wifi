@@ -312,13 +312,13 @@
 			path = path_provider_foundation;
 			sourceTree = "<group>";
 		};
-		0726D34DAE6DFD1670491E2A5E176197 /* auto_wifi */ = {
+		0726D34DAE6DFD1670491E2A5E176197 /* eureka */ = {
 			isa = PBXGroup;
 			children = (
 				CCF29A6AEF59F883D29698DEFDD36A6C /* macos */,
 			);
-			name = auto_wifi;
-			path = auto_wifi;
+			name = eureka;
+			path = eureka;
 			sourceTree = "<group>";
 		};
 		0948076431BFA57FCC91762065FB5693 /* flutter_local_notifications */ = {
@@ -360,7 +360,7 @@
 		0B7614F7957574716B1D718E79CCF671 /* git */ = {
 			isa = PBXGroup;
 			children = (
-				0726D34DAE6DFD1670491E2A5E176197 /* auto_wifi */,
+				0726D34DAE6DFD1670491E2A5E176197 /* eureka */,
 			);
 			name = git;
 			path = git;
@@ -570,7 +570,7 @@
 		4576E2F838613DF16E4EEF13CE1B772C /* git */ = {
 			isa = PBXGroup;
 			children = (
-				CA58DB7A7E6437D4DC487A86F78F8414 /* auto_wifi */,
+				CA58DB7A7E6437D4DC487A86F78F8414 /* eureka */,
 			);
 			name = git;
 			path = git;
@@ -756,7 +756,7 @@
 		7794D32368F0E4DDA0A96FFA647B4C24 /* git */ = {
 			isa = PBXGroup;
 			children = (
-				EFC8C813E9F94E7194687764F45B927E /* auto_wifi */,
+				EFC8C813E9F94E7194687764F45B927E /* eureka */,
 			);
 			name = git;
 			path = git;
@@ -802,7 +802,7 @@
 		8BCAB5681A7638DCB396B93A6353465F /* git */ = {
 			isa = PBXGroup;
 			children = (
-				B7DB76D5D3688A70589AF2C0946D5115 /* auto_wifi */,
+				B7DB76D5D3688A70589AF2C0946D5115 /* eureka */,
 			);
 			name = git;
 			path = git;
@@ -972,13 +972,13 @@
 			path = ..;
 			sourceTree = "<group>";
 		};
-		B7DB76D5D3688A70589AF2C0946D5115 /* auto_wifi */ = {
+		B7DB76D5D3688A70589AF2C0946D5115 /* eureka */ = {
 			isa = PBXGroup;
 			children = (
 				DAF1EA1C3D97673A8E53207FBE67C440 /* macos */,
 			);
-			name = auto_wifi;
-			path = auto_wifi;
+			name = eureka;
+			path = eureka;
 			sourceTree = "<group>";
 		};
 		BA1CCF42C7F994C2A7705BC163B1E678 /* ephemeral */ = {
@@ -1011,7 +1011,7 @@
 		BD84BA79C7C9E50B4102F19D44FD6650 /* git */ = {
 			isa = PBXGroup;
 			children = (
-				E1F6AD99BC989DA526F599F3C8123BA9 /* auto_wifi */,
+				E1F6AD99BC989DA526F599F3C8123BA9 /* eureka */,
 			);
 			name = git;
 			path = git;
@@ -1087,13 +1087,13 @@
 			path = plugins;
 			sourceTree = "<group>";
 		};
-		CA58DB7A7E6437D4DC487A86F78F8414 /* auto_wifi */ = {
+		CA58DB7A7E6437D4DC487A86F78F8414 /* eureka */ = {
 			isa = PBXGroup;
 			children = (
 				8C958BF8A2654E7165A4C654BF97FF20 /* macos */,
 			);
-			name = auto_wifi;
-			path = auto_wifi;
+			name = eureka;
+			path = eureka;
 			sourceTree = "<group>";
 		};
 		CCF29A6AEF59F883D29698DEFDD36A6C /* macos */ = {
@@ -1199,13 +1199,13 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		E1F6AD99BC989DA526F599F3C8123BA9 /* auto_wifi */ = {
+		E1F6AD99BC989DA526F599F3C8123BA9 /* eureka */ = {
 			isa = PBXGroup;
 			children = (
 				051AD911AA33F50813AEBF7EFD89D07F /* macos */,
 			);
-			name = auto_wifi;
-			path = auto_wifi;
+			name = eureka;
+			path = eureka;
 			sourceTree = "<group>";
 		};
 		E806A4F97D48F5FD3B4CA1BC617EA1F5 /* Pods-Runner */ = {
@@ -1282,13 +1282,13 @@
 			path = ..;
 			sourceTree = "<group>";
 		};
-		EFC8C813E9F94E7194687764F45B927E /* auto_wifi */ = {
+		EFC8C813E9F94E7194687764F45B927E /* eureka */ = {
 			isa = PBXGroup;
 			children = (
 				653D583E50E9F9166D4042D6976EF43F /* macos */,
 			);
-			name = auto_wifi;
-			path = auto_wifi;
+			name = eureka;
+			path = eureka;
 			sourceTree = "<group>";
 		};
 		F5D1B202E308A331D6E0AAAE293E2C44 /* Flutter */ = {

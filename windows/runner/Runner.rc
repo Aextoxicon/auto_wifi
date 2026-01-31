@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "auto_wifi" "\0"
+            VALUE "FileDescription", "eureka" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "auto_wifi" "\0"
+            VALUE "InternalName", "eureka" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "auto_wifi.exe" "\0"
-            VALUE "ProductName", "auto_wifi" "\0"
+            VALUE "OriginalFilename", "eureka.exe" "\0"
+            VALUE "ProductName", "eureka" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

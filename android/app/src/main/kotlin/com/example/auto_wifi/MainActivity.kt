@@ -1,4 +1,4 @@
-package com.example.auto_wifi
+package com.example.eureka
 
 import io.flutter.embedding.android.FlutterActivity
 

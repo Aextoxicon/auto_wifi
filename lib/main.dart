@@ -151,7 +151,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
     // 获取私有目录路径并保存文件
     final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/auto_wifi_android.apk';
+    final filePath = '${directory.path}/eureka_android.apk';
     final file = File(filePath);
     // 下载 APK 文件
     final response = await http.get(Uri.parse(apkUrl));
@@ -198,7 +198,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
+  const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
   
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -237,7 +237,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site/auto_wifi_android.apk';
+        String apkUrl = 'https://update.aextoxicon.site:64259/eureka_android.apk';
         _downloadAndInstallApk(apkUrl, context);
       }
     }
@@ -266,7 +266,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Auto-WIFI',
+      title: 'Eureka-gjjgxx',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: _getPlatformSpecificPage(),
     );
@@ -631,7 +631,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       try {
         final intent = AndroidIntent(
           action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
-          data: 'package:com.example.auto_wifi',
+          data: 'package:com.example.eureka',
         );
         await intent.launch();
       } catch (e) {
@@ -705,7 +705,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI 1.8.0')),
+      appBar: AppBar(title: const Text('Eureka-gjjgxx 1.8.0')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1020,7 +1020,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
+    const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
     
     try {
       // 获取应用的实际版本
@@ -1043,7 +1043,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
         } else {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('有新版本可用: $remoteVersion,请到https://update.aextoxicon.site/下载')));
+          ).showSnackBar(SnackBar(content: Text('有新版本可用: $remoteVersion,请到https://update.aextoxicon.site:64259/下载')));
           // 桌面端不自动下载安装，只提示用户
         }
       }
@@ -1057,7 +1057,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-WIFI PC 1.8.0')),
+      appBar: AppBar(title: const Text('Eureka-gjjgxx PC 1.8.0')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1165,7 +1165,7 @@ Future<void> _initBackgroundService() async {
       autoStart: true,
       isForegroundMode: true,
       notificationChannelId: CHANNEL_ID,
-      initialNotificationTitle: 'Auto-WIFI',
+      initialNotificationTitle: 'Eureka-gjjgxx',
       initialNotificationContent: '保持校园网连接',
       foregroundServiceTypes: [AndroidForegroundType.dataSync],
     ),

@@ -1,6 +1,6 @@
 {
-    "name": "auto_wifi",
-    "short_name": "auto_wifi",
+    "name": "eureka",
+    "short_name": "eureka",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
