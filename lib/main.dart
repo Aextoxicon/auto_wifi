@@ -199,12 +199,12 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
   }
 }
 
+
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  // 使用GitHub API获取最新release
-  const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
+  const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
   
   try {
-    logManager.log('版本检查 - 开始抓取GitHub最新release信息');
+    logManager.log('版本检查 - 开始抓取远程版本信息');
     
     // 获取应用的实际版本
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -213,99 +213,44 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
     logManager.log('版本检查 - 本地版本: $localVersion');
     
     final response = await http
-        .get(
-          Uri.parse(githubApiUrl),
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Eureka-App'
-          }
-        )
-        .timeout(const Duration(seconds: 10));
+        .get(Uri.parse(remoteVersionUrl))
+        .timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
-      final jsonData = jsonDecode(response.body);
-      final tagName = jsonData['tag_name'] as String?;
-      
-      if (tagName != null) {
-        // 移除tag前缀'v'，如果有的话
-        final remoteVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
-        logManager.log('版本检查 - GitHub最新版本: $remoteVersion, 本地版本: $localVersion');
+      final remoteVersion = response.body.trim();
+      logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
-        final remote = Version.parse(remoteVersion);
-        final local = Version.parse(localVersion);
+      final remote = Version.parse(remoteVersion);
+      final local = Version.parse(localVersion);
 
-        if (remote <= local) {
-          logManager.log('版本检查 - 当前已是最新版本');
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('版本检查'),
-              content: const Text('当前已是最新版本'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('确定'),
-                ),
-              ],
-            ),
-          );
-        } else {
-          logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-          
-          // 获取下载链接（假设是apk文件）
-          final assets = jsonData['assets'] as List?;
-          String? apkDownloadUrl;
-          
-          if (assets != null && assets.isNotEmpty) {
-            // 查找apk文件
-            for (var asset in assets) {
-              final name = asset['name'] as String?;
-              if (name != null && name.endsWith('.apk')) {
-                apkDownloadUrl = asset['browser_download_url'] as String?;
-                break;
-              }
-            }
-          }
-          
-          if (apkDownloadUrl != null) {
-            _downloadAndInstallApk(apkDownloadUrl, context);
-          } else {
-            // 如果没找到apk，提示用户去GitHub下载
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('发现新版本'),
-                content: Text('新版本 $remoteVersion 已发布，但未找到APK下载链接。\n\n请访问GitHub页面手动下载更新。'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      // 这里可以添加打开浏览器到GitHub release页面的逻辑
-                    },
-                    child: const Text('查看GitHub'),
-                  ),
-                ],
+      if (remote <= local) {
+        logManager.log('版本检查 - 当前已是最新版本');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('版本检查'),
+            content: const Text('当前已是最新版本'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('确定'),
               ),
-            );
-          }
-        }
+            ],
+          ),
+        );
       } else {
-        throw Exception('无法解析GitHub release标签');
+        logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+        String apkUrl = 'https://update.aextoxicon.site:64259/eureka_android.apk';
+        _downloadAndInstallApk(apkUrl, context);
       }
-    } else {
-      throw Exception('GitHub API请求失败: ${response.statusCode}');
     }
   } catch (e, stack) {
-    logManager.logError('版本检查 - 抓取GitHub release异常: $e', stack);
+    logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('版本检查失败'),
-        content: Text('检查更新失败：$e\n\n请检查网络连接或稍后重试'),
+        content: const Text('检查更新失败，请检查网络连接'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -316,6 +261,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
     );
   }
 }
+
 
 // ====== UI 部分 ======
 class MyApp extends StatelessWidget {
@@ -1068,43 +1014,41 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
+    const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
     
     try {
+      logManager.log('版本检查 - 开始抓取远程版本信息');
+      
+      // 获取应用的实际版本
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       String localVersion = packageInfo.version;
       
+      logManager.log('版本检查 - 本地版本: $localVersion');
+      
       final response = await http
-          .get(
-            Uri.parse(githubApiUrl),
-            headers: {
-              'Accept': 'application/vnd.github.v3+json',
-              'User-Agent': 'Eureka-App'
-            }
-          )
-          .timeout(const Duration(seconds: 10));
+          .get(Uri.parse(remoteVersionUrl))
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final jsonData = jsonDecode(response.body);
-        final tagName = jsonData['tag_name'] as String?;
-        
-        if (tagName != null) {
-          final remoteVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
-          final remote = Version.parse(remoteVersion);
-          final local = Version.parse(localVersion);
+        final remoteVersion = response.body.trim();
 
-          if (remote <= local) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
-          } else {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('发现新版本 $remoteVersion，请访问GitHub下载最新版本')));
-          }
+        final remote = Version.parse(remoteVersion);
+        final local = Version.parse(localVersion);
+
+        if (remote <= local) {
+          logManager.log('版本检查 - 当前已是最新版本');
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
+        } else {
+          logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('发现新版本 $remoteVersion，请访问 https://github.com/aextoxicon/Eureka-gjjgxx/releases获取更新')));
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('检查更新失败：$e')));
