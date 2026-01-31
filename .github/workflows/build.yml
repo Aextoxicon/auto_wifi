@@ -9,10 +9,14 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,25 +32,38 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
+      - name: Extract app version
+        run: |
+          $VERSION = Select-String -Path "pubspec.yaml" -Pattern "^version:" | ForEach-Object { ($_ -split ":")[1].Trim() } | ForEach-Object { ($_ -split "\+")[0] }
+          echo "APP_VERSION=$VERSION" >> $env:GITHUB_ENV
+
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
       - name: build windows
         run: flutter build windows
 
-      - name: Upload Windows zip
-        env:
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
-        run: |
-          Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
-          curl --http1.1 -X POST -H "Authorization: Bearer $env:API_TOKEN" -F "file=@eureka_win.zip" $env:UPLOAD_URL
       - name: build android
         run: flutter build apk
 
-      - name: Upload Android apk
-        env:
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
+      - name: Create and push git tag
         run: |
-          curl --http1.1 -X POST -H "Authorization: Bearer $env:API_TOKEN" -F "file=@build/app/outputs/flutter-apk/app-release.apk" $env:UPLOAD_URL
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
+          git push origin "v${{ env.APP_VERSION }}"
+
+      - name: Package Windows build
+        run: |
+          Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
+
+      - name: Create GitHub Release and upload builds
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          files: |
+            eureka_win.zip
+            build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

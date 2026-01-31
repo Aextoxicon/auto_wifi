@@ -9,10 +9,14 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -21,10 +25,8 @@ jobs:
 
       - name: Extract app version
         run: |
-          # 从 pubspec.yaml 中提取 version 字段（格式如 version: 1.0.0+1）
-          VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}')
-          echo "$VERSION" > version.txt
-          cat version.txt
+          VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
@@ -32,11 +34,22 @@ jobs:
       - name: build macos
         run: flutter build macos
 
-      - name: Upload macos zip and version.txt
-        env: 
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
+      - name: Create and push git tag
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
+          git push origin "v${{ env.APP_VERSION }}"
+
+      - name: Zip built app
         run: |
           zip -r -X eureka_mac.zip build/macos/Build/Products/Release/eureka.app
-          curl --http1.1 -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@eureka_mac.zip" $UPLOAD_URL
-          curl --http1.1 -X POST -H "Authorization: Bearer $API_TOKEN" -F "file=@version.txt" $UPLOAD_URL
+
+      - name: Create GitHub Release and upload app
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          files: eureka_mac.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

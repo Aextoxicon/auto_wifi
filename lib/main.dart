@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +15,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
@@ -198,10 +200,11 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
+  // 使用GitHub API获取最新release
+  const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
   
   try {
-    logManager.log('版本检查 - 开始抓取远程版本信息');
+    logManager.log('版本检查 - 开始抓取GitHub最新release信息');
     
     // 获取应用的实际版本
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -210,44 +213,99 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
     logManager.log('版本检查 - 本地版本: $localVersion');
     
     final response = await http
-        .get(Uri.parse(remoteVersionUrl))
-        .timeout(const Duration(seconds: 5));
+        .get(
+          Uri.parse(githubApiUrl),
+          headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Eureka-App'
+          }
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
-      final remoteVersion = response.body.trim();
-      logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
+      final jsonData = jsonDecode(response.body);
+      final tagName = jsonData['tag_name'] as String?;
+      
+      if (tagName != null) {
+        // 移除tag前缀'v'，如果有的话
+        final remoteVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
+        logManager.log('版本检查 - GitHub最新版本: $remoteVersion, 本地版本: $localVersion');
 
-      final remote = Version.parse(remoteVersion);
-      final local = Version.parse(localVersion);
+        final remote = Version.parse(remoteVersion);
+        final local = Version.parse(localVersion);
 
-      if (remote <= local) {
-        logManager.log('版本检查 - 当前已是最新版本');
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('版本检查'),
-            content: const Text('当前已是最新版本'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('确定'),
+        if (remote <= local) {
+          logManager.log('版本检查 - 当前已是最新版本');
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('版本检查'),
+              content: const Text('当前已是最新版本'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+          
+          // 获取下载链接（假设是apk文件）
+          final assets = jsonData['assets'] as List?;
+          String? apkDownloadUrl;
+          
+          if (assets != null && assets.isNotEmpty) {
+            // 查找apk文件
+            for (var asset in assets) {
+              final name = asset['name'] as String?;
+              if (name != null && name.endsWith('.apk')) {
+                apkDownloadUrl = asset['browser_download_url'] as String?;
+                break;
+              }
+            }
+          }
+          
+          if (apkDownloadUrl != null) {
+            _downloadAndInstallApk(apkDownloadUrl, context);
+          } else {
+            // 如果没找到apk，提示用户去GitHub下载
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('发现新版本'),
+                content: Text('新版本 $remoteVersion 已发布，但未找到APK下载链接。\n\n请访问GitHub页面手动下载更新。'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('取消'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      // 这里可以添加打开浏览器到GitHub release页面的逻辑
+                    },
+                    child: const Text('查看GitHub'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
+            );
+          }
+        }
       } else {
-        logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site:64259/eureka_android.apk';
-        _downloadAndInstallApk(apkUrl, context);
+        throw Exception('无法解析GitHub release标签');
       }
+    } else {
+      throw Exception('GitHub API请求失败: ${response.statusCode}');
     }
   } catch (e, stack) {
-    logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
+    logManager.logError('版本检查 - 抓取GitHub release异常: $e', stack);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('版本检查失败'),
-        content: const Text('检查更新失败，请检查网络连接'),
+        content: Text('检查更新失败：$e\n\n请检查网络连接或稍后重试'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -274,28 +332,20 @@ class MyApp extends StatelessWidget {
 
   Widget _getPlatformSpecificPage() {
     if (Platform.isAndroid || Platform.isIOS) {
-      // 移动端使用原有页面
       return const DrcomAuthPage();
     } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      // 桌面端使用新页面
       return const DrcomAuthPC();
     } else {
-      // 默认使用移动端页面
       return const DrcomAuthPage();
     }
   }
 }
 
-// 定义一个通用的 Dialog 路由
 Route _createHeroDialogRoute(Widget dialog) {
   return PageRouteBuilder(
-    // 将背景设置为透明
     opaque: false,
-    // 允许 Hero 动画的正常执行
     pageBuilder: (context, animation, secondaryAnimation) => dialog,
-    // 关键：确保不添加会覆盖 Hero 动画的默认转场效果
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      // 只保留 Hero 动画，或者添加一个淡入（FadeTransition）效果
       return FadeTransition(opacity: animation, child: child);
     },
   );
@@ -401,7 +451,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         logManager.logWarning('检查电池优化状态失败: $e');
       }
     }
-  } // 检查是否已关闭电池优化
+  }
 
   void _showExitDialog() {
     showDialog(
@@ -478,7 +528,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void callbackDispatcher() async {
     Workmanager().executeTask((task, inputData) {
       _checkServiceStatus();
-      return Future.value(true); // 返回 true 表示任务成功完成
+      return Future.value(true);
     });
   }
 
@@ -522,7 +572,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   void _showConfigDialog() {
     final userCtrl = TextEditingController(text: username);
     final passCtrl = TextEditingController(text: password);
-    // [修改] 使用自定义路由代替 showDialog
     Navigator.of(context).push(
       _createHeroDialogRoute(
         Hero(
@@ -705,7 +754,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Eureka-gjjgxx 1.8.0')),
+      appBar: AppBar(title: const Text('Eureka-gjjgxx')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -866,7 +915,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   void initState() {
     super.initState();
     _initPrefs();
-    _startPCLoop(); // 桌面端直接启动循环
+    _startPCLoop();
   }
 
   Future<void> _startPCLoop() async {
@@ -874,7 +923,6 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       setState(() => status = '请先配置账号');
       return;
     }
-    // 桌面端不需要后台服务，直接在前台运行
     _runPCTask();
   }
 
@@ -1020,44 +1068,53 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
+    const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
     
     try {
-      // 获取应用的实际版本
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       String localVersion = packageInfo.version;
       
       final response = await http
-          .get(Uri.parse(remoteVersionUrl))
-          .timeout(const Duration(seconds: 5));
+          .get(
+            Uri.parse(githubApiUrl),
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'Eureka-App'
+            }
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final remoteVersion = response.body.trim();
-        final remote = Version.parse(remoteVersion);
-        final local = Version.parse(localVersion);
+        final jsonData = jsonDecode(response.body);
+        final tagName = jsonData['tag_name'] as String?;
+        
+        if (tagName != null) {
+          final remoteVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
+          final remote = Version.parse(remoteVersion);
+          final local = Version.parse(localVersion);
 
-        if (remote <= local) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('有新版本可用: $remoteVersion,请到https://update.aextoxicon.site:64259/下载')));
-          // 桌面端不自动下载安装，只提示用户
+          if (remote <= local) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
+          } else {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('发现新版本 $remoteVersion，请访问GitHub下载最新版本')));
+          }
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('检查更新失败，请检查网络连接')));
+      ).showSnackBar(SnackBar(content: Text('检查更新失败：$e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Eureka-gjjgxx PC 1.8.0')),
+      appBar: AppBar(title: const Text('Eureka-gjjgxx PC')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1156,7 +1213,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 }
 
-// ====== 后台服务初始化（UI 之后） ======
+// ====== 后台服务初始化 ======
 Future<void> _initBackgroundService() async {
   final service = FlutterBackgroundService();
   await service.configure(
@@ -1173,7 +1230,7 @@ Future<void> _initBackgroundService() async {
   );
 }
 
-// ====== 后台任务逻辑（全部移到最后） ======
+// ====== 后台任务逻辑 ======
 Future<bool> _backgroundLogin(String username, String password) async {
   logManager.log('后台认证 - 尝试登录: $username');
   try {
