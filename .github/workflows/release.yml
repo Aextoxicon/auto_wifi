@@ -2,7 +2,7 @@ name: Release Manager
 
 on:
   workflow_run:
-    workflows: ["build for mac", "build for windows and android"]
+    workflows: ["build for windows and android"]
     types: [completed]
   workflow_dispatch:
 
