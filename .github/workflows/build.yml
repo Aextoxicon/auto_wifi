@@ -112,32 +112,78 @@ jobs:
         run: |
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
 
-      - name: Append files to existing release
+      - name: Check if release already exists
+        id: check_release
         run: |
           try {
             $tagName = "v${{ env.APP_VERSION }}"
-            
-            Write-Host "Attempting to append files to release: $tagName"
-            
-            gh release upload "$tagName" eureka_win.zip build/app/outputs/flutter-apk/app-release.apk --clobber
-            echo "Successfully appended Windows and Android files to release: $tagName"
-            
-          } catch {
-            Write-Error "Failed to append files to release: $($_.Exception.Message)"
-            
-            $errorMessage = $_.Exception.Message
-            if ($errorMessage -like "*not found*" -or $errorMessage -like "*No release found*") {
-              Write-Warning "Release $tagName not found. Creating new release with all files."
-              
-              gh release create "$tagName" \
-                --title "Release ${{ env.APP_VERSION }}" \
-                --notes "Release created by Windows/Android build workflow as fallback." \
-                version.txt eureka_win.zip build/app/outputs/flutter-apk/app-release.apk
-              echo "Successfully created new release with all files: $tagName"
+            gh release view "$tagName" > $null 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              echo "Release $tagName already exists"
+              echo "RELEASE_EXISTS=true" >> $env:GITHUB_ENV
+              echo "exists=true" >> $env:GITHUB_OUTPUT
             } else {
-              Write-Error "Unexpected error occurred: $errorMessage"
-              exit 1
+              echo "Release $tagName does not exist"
+              echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
+              echo "exists=false" >> $env:GITHUB_OUTPUT
             }
+          } catch {
+            Write-Warning "Failed to check release: $_"
+            echo "RELEASE_EXISTS=false" >> $env:GITHUB_ENV
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tag if needed
+        if: ${{ steps.check_release.outputs.exists == 'false' }}
+        run: |
+          try {
+            $tagName = "v${{ env.APP_VERSION }}"
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            if (git tag --list | Where-Object { $_ -eq $tagName }) {
+              Write-Host "Local tag $tagName already exists"
+            } else {
+              git tag -a "$tagName" -m "Release $tagName"
+            }
+            git push origin "$tagName"
+            echo "Successfully created and pushed tag: $tagName"
+          } catch {
+            Write-Error "Failed to create tag: $_"
+            exit 1
+          }
+
+      - name: Create new release with files
+        if: ${{ steps.check_release.outputs.exists == 'false' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          body: |
+            ## Release v${{ env.APP_VERSION }}
+            
+            Automated release for Windows and Android platforms.
+            
+            ### Included files:
+            - Windows executable package
+            - Android APK
+          files: |
+            eureka_win.zip
+            build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload additional files to existing release
+        if: ${{ steps.check_release.outputs.exists == 'true' }}
+        run: |
+          try {
+            $tagName = "v${{ env.APP_VERSION }}"
+            gh release upload "$tagName" eureka_win.zip build/app/outputs/flutter-apk/app-release.apk --clobber
+            echo "Successfully uploaded files to existing release: $tagName"
+          } catch {
+            Write-Error "Failed to upload files to existing release: $_"
+            exit 1
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
