@@ -2,13 +2,14 @@ name: Release Manager
 
 on:
   workflow_run:
-    workflows: ["build for windows and android"]
+    workflows: ["build for mac", "build for windows and android"]
     types: [completed]
   workflow_dispatch:
 
 jobs:
   manage-release:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
     
@@ -24,8 +25,7 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Wait for all builds to complete
-        run: |
-          sleep 60
+        run: sleep 60
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
