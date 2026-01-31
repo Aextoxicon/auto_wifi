@@ -13,6 +13,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
@@ -26,7 +27,6 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-// 初始化通知通道
 Future<void> _initNotificationChannel() async {
   if (Platform.isAndroid) {
     final plugin = FlutterLocalNotificationsPlugin();
@@ -54,8 +54,8 @@ Future<void> _initNotificationChannel() async {
 @pragma('vm:entry-point')
 Future<void> registerPeriodicTask() async {
   await Workmanager().registerPeriodicTask(
-    "1", // ID
-    "checkServiceStatusTask", // 任务名称
+    "1",
+    "checkServiceStatusTask",
     frequency: Duration(minutes: 15),
     constraints: Constraints(
       networkType: NetworkType.connected,
@@ -65,7 +65,6 @@ Future<void> registerPeriodicTask() async {
   logManager.log('后台操作 - 注册任务成功');
 }
 
-// ====== 日志管理（全局使用，放在顶部） ======
 class LogManager extends ChangeNotifier {
   static final LogManager _instance = LogManager._internal();
   factory LogManager() => _instance;
@@ -200,10 +199,16 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
   const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-  final localVersion = '1.8.0'; // version
-
+  
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
+    
+    // 获取应用的实际版本
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    String localVersion = packageInfo.version;
+    
+    logManager.log('版本检查 - 本地版本: $localVersion');
+    
     final response = await http
         .get(Uri.parse(remoteVersionUrl))
         .timeout(const Duration(seconds: 5));
@@ -1016,9 +1021,12 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
 
   Future<void> _fetchAndCompareVersion() async {
     const remoteVersionUrl = 'https://update.aextoxicon.site/version.txt';
-    final localVersion = '1.8.0';
-
+    
     try {
+      // 获取应用的实际版本
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      String localVersion = packageInfo.version;
+      
       final response = await http
           .get(Uri.parse(remoteVersionUrl))
           .timeout(const Duration(seconds: 5));
