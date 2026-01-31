@@ -58,13 +58,13 @@ jobs:
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
 
       - name: Upload windows build files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
             name: eureka_win
             path: build/windows/x64/runner/Release/
 
       - name: Upload android build files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk

@@ -42,7 +42,7 @@ jobs:
           git push origin "v${{ env.APP_VERSION }}"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: eureka_mac
           path: build/macos/Build/Products/Release/eureka.app
