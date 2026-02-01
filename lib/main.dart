@@ -201,7 +201,7 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
+  const remoteVersionUrl = 'http://update.aextoxicon.site:64259/version.txt';
   
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
@@ -240,7 +240,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'https://update.aextoxicon.site:64259/eureka_android.apk';
+        String apkUrl = 'http://update.aextoxicon.site:64259/eureka_android.apk';
         _downloadAndInstallApk(apkUrl, context);
       }
     }
@@ -1014,7 +1014,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'https://update.aextoxicon.site:64259/version.txt';
+    const remoteVersionUrl = 'http://update.aextoxicon.site:64259/version.txt';
     
     try {
       logManager.log('版本检查 - 开始抓取远程版本信息');
