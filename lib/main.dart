@@ -15,7 +15,6 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
 //const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
@@ -142,7 +141,6 @@ class LogManager extends ChangeNotifier {
 
 Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
   try {
-    // 显示下载进度对话框
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -151,14 +149,13 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
       ),
     );
 
-    // 获取私有目录路径并保存文件
     final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/eureka_android.apk';
+    final filePath = '${directory.path}/app-release.apk';
     final file = File(filePath);
-    // 下载 APK 文件
+
     final response = await http.get(Uri.parse(apkUrl));
     if (response.statusCode != 200) {
-      Navigator.of(context).pop(); // 关闭对话框
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('下载失败，请稍后重试')));
@@ -166,19 +163,16 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
     }
     await file.writeAsBytes(response.bodyBytes);
 
-    Navigator.of(context).pop(); // 关闭对话框
+    Navigator.of(context).pop();
 
-    // 调用系统安装器安装 APK
     final result = await OpenFilex.open(
       filePath,
       type: "application/vnd.android.package-archive",
     );
 
-    // 检查安装结果
     if (result.message != null && result.message!.contains('Success')) {
       logManager.log('安装器调用成功');
 
-      // 删除安装包
       try {
         await file.delete();
         logManager.log('安装包已删除');
@@ -199,25 +193,56 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
   }
 }
 
-
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const remoteVersionUrl = 'http://update.aextoxicon.site:64259/version.txt';
+  const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
   
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
     
-    // 获取应用的实际版本
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     String localVersion = packageInfo.version;
     
     logManager.log('版本检查 - 本地版本: $localVersion');
     
     final response = await http
-        .get(Uri.parse(remoteVersionUrl))
-        .timeout(const Duration(seconds: 5));
+        .get(
+          Uri.parse(githubApiUrl),
+          headers: {'User-Agent': 'Eureka-gjjgxx-app'},
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
-      final remoteVersion = response.body.trim();
+      final jsonResponse = json.decode(response.body);
+      final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(RegExp(r'^v'), '');
+      final assets = jsonResponse['assets'] as List;
+      
+      String? apkDownloadUrl;
+      for (var asset in assets) {
+        if (asset['name'] == 'app-release.apk') {
+          String originalUrl = asset['browser_download_url'];
+          apkDownloadUrl = 'https://gh-proxy.com/' + originalUrl;
+          break;
+        }
+      }
+      
+      if (apkDownloadUrl == null) {
+        logManager.logWarning('版本检查 - 未找到app-release.apk文件');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('版本检查失败'),
+            content: const Text('未找到可用的APK文件'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      
       logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
       final remote = Version.parse(remoteVersion);
@@ -240,9 +265,23 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
       } else {
         logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-        String apkUrl = 'http://update.aextoxicon.site:64259/eureka_android.apk';
-        _downloadAndInstallApk(apkUrl, context);
+        _downloadAndInstallApk(apkDownloadUrl, context);
       }
+    } else {
+      logManager.logError('版本检查 - GitHub API请求失败: ${response.statusCode}');
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('版本检查失败'),
+          content: Text('检查更新失败，请检查网络连接 (状态码: ${response.statusCode})'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
     }
   } catch (e, stack) {
     logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
@@ -261,7 +300,6 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
     );
   }
 }
-
 
 // ====== UI 部分 ======
 class MyApp extends StatelessWidget {
