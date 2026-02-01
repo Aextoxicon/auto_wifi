@@ -88,8 +88,7 @@ jobs:
           
           gh release create "v${{ env.APP_VERSION }}" \
             --title "Release v${{ env.APP_VERSION }}" \
-            --notes "Automated release for macOS platform. Includes version.txt for cross-workflow version sharing." \
-            version.txt \
+            --notes "Automated release by GitHub Actions, including app releases for Android,Windows and MacOS" \
             eureka_mac.zip
           echo "Successfully created release with version.txt and mac file"
         env:
