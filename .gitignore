@@ -15,6 +15,7 @@ build
 build/*
 windows/flutter/ephemeral/
 current_logs.txt
+android/.gradle/
 
 # IDEs and OS files
 .DS_Store
