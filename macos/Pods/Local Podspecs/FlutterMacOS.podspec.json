@@ -1,6 +1,6 @@
 {
   "name": "FlutterMacOS",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "summary": "A UI toolkit for beautiful and fast apps.",
   "homepage": "https://flutter.dev",
   "license": {
@@ -11,7 +11,7 @@
   },
   "source": {
     "git": "https://github.com/flutter/engine",
-    "tag": "1.9.4"
+    "tag": "1.9.5"
   },
   "platforms": {
     "osx": "10.15"
