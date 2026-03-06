@@ -23,32 +23,6 @@ jobs:
         with:
           flutter-version: "3.35.4"
 
-      - name: Extract app version with validation
-        id: extract_version
-        run: |
-          VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Error: Invalid version format extracted: '$VERSION'"
-            exit 1
-          fi
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION"
-          
-          echo "$VERSION" > version.txt
-          echo "Created version.txt with content: $(cat version.txt)"
-
-      - name: Upload version.txt to file server
-        run: |
-          curl --http1.1 -X POST \
-            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
-            -F "file=@version.txt" \
-            "${{ secrets.UPLOAD_URL }}"
-          echo "Successfully uploaded version.txt to file server using provided command format"
-        env:
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          UPLOAD_URL: ${{ secrets.UPLOAD_URL }}
-
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
