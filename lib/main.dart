@@ -24,7 +24,9 @@ final logManager = LogManager();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initNotificationChannel();
-  Workmanager().initialize(registerPeriodicTask);
+  if (Platform.isAndroid) {
+    Workmanager().initialize(registerPeriodicTask);
+  }
   runApp(const MyApp());
 }
 
@@ -194,16 +196,17 @@ Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
 }
 
 Future<void> _fetchAndCompareVersion(BuildContext context) async {
-  const githubApiUrl = 'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
-  
+  const githubApiUrl =
+      'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
+
   try {
     logManager.log('版本检查 - 开始抓取远程版本信息');
-    
+
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     String localVersion = packageInfo.version;
-    
+
     logManager.log('版本检查 - 本地版本: $localVersion');
-    
+
     final response = await http
         .get(
           Uri.parse(githubApiUrl),
@@ -213,9 +216,12 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
 
     if (response.statusCode == 200) {
       final jsonResponse = json.decode(response.body);
-      final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(RegExp(r'^v'), '');
+      final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(
+        RegExp(r'^v'),
+        '',
+      );
       final assets = jsonResponse['assets'] as List;
-      
+
       String? apkDownloadUrl;
       for (var asset in assets) {
         if (asset['name'] == 'app-release.apk') {
@@ -224,7 +230,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
           break;
         }
       }
-      
+
       if (apkDownloadUrl == null) {
         logManager.logWarning('版本检查 - 未找到app-release.apk文件');
         showDialog(
@@ -242,7 +248,7 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
         );
         return;
       }
-      
+
       logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
       final remote = Version.parse(remoteVersion);
@@ -911,7 +917,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   void _runPCTask() {
-    Timer.periodic(const Duration(seconds: 5), (timer) async {
+    Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -950,7 +956,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
     try {
       String url =
           'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-          //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+      //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
       final loginUri = Uri.parse(url);
       final response = await http
           .get(
@@ -1052,27 +1058,64 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   }
 
   Future<void> _fetchAndCompareVersion() async {
-    const remoteVersionUrl = 'http://update.aextoxicon.site:64259/version.txt';
-    
+    const githubApiUrl =
+        'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
+
     try {
       logManager.log('版本检查 - 开始抓取远程版本信息');
-      
-      // 获取应用的实际版本
+
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       String localVersion = packageInfo.version;
-      
+
       logManager.log('版本检查 - 本地版本: $localVersion');
-      
+
       final response = await http
-          .get(Uri.parse(remoteVersionUrl))
-          .timeout(const Duration(seconds: 5));
+          .get(
+            Uri.parse(githubApiUrl),
+            headers: {'User-Agent': 'Eureka-gjjgxx-app'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final remoteVersion = response.body.trim();
+        final jsonResponse = json.decode(response.body);
+        final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(
+          RegExp(r'^v'),
+          '',
+        );
+        final assets = jsonResponse['assets'] as List;
+
+        String? apkDownloadUrl;
+        for (var asset in assets) {
+          if (asset['name'] == 'app-release.apk') {
+            String originalUrl = asset['browser_download_url'];
+            apkDownloadUrl = 'https://gh-proxy.com/' + originalUrl;
+            break;
+          }
+        }
+
+        if (apkDownloadUrl == null) {
+          logManager.logWarning('版本检查 - 未找到app-release.apk文件');
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('版本检查失败'),
+              content: const Text('未找到可用的APK文件'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
+        logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
         final remote = Version.parse(remoteVersion);
         final local = Version.parse(localVersion);
-
+        
         if (remote <= local) {
           logManager.log('版本检查 - 当前已是最新版本');
           ScaffoldMessenger.of(
@@ -1080,9 +1123,13 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
           ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
         } else {
           logManager.log('版本检查 - 有新版本可用: $remoteVersion');
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('发现新版本 $remoteVersion，请访问 https://github.com/aextoxicon/Eureka-gjjgxx/releases获取更新')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '发现新版本 $remoteVersion，请访问 https://github.com/aextoxicon/Eureka-gjjgxx/releases获取更新',
+              ),
+            ),
+          );
         }
       }
     } catch (e, stack) {
@@ -1218,7 +1265,7 @@ Future<bool> _backgroundLogin(String username, String password) async {
   try {
     String url =
         'http://192.168.110.100/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
-        //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
+    //'http://192.168.31.58:50000/drcom/login?callback=dr1003&DDDDD=$username&upass=$password&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=3196';
     final loginUri = Uri.parse(url);
     logManager.logDebug('后台认证 - 请求 URL: $loginUri');
     final response = await http
