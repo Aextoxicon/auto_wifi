@@ -44,6 +44,23 @@ jobs:
       - name: Package Windows build
         run: |
           Compress-Archive -Path "build/windows/x64/runner/Release/" -DestinationPath "eureka_win.zip"
+          
+      - name: Extract app version with validation
+        id: extract_version
+        run: |
+          $versionLine = Select-String -Path "pubspec.yaml" -Pattern "^version:" | ForEach-Object { $_.Line }
+          if (-not $versionLine) {
+            Write-Error "Error: Version line not found in pubspec.yaml"
+            exit 1
+          }
+          $version = ($versionLine -split ' ')[1] -split '\+' | Select-Object -First 1
+          if (-not $version -or -not ($version -match '^\d+\.\d+\.\d+$')) {
+            Write-Error "Error: Invalid version format extracted: '$version'"
+            exit 1
+          }
+          echo "APP_VERSION=$version" >> $env:GITHUB_ENV
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Extracted version: $version"
 
       - name: Check if release already exists
         id: check_release

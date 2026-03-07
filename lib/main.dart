@@ -216,7 +216,27 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
 
     if (response.statusCode == 200) {
       final jsonResponse = json.decode(response.body);
-      final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(
+      final tagName = jsonResponse['tag_name'] as String?;
+      
+      if (tagName == null || tagName.isEmpty) {
+        logManager.logError('版本检查 - 远程版本标签为空');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('版本检查失败'),
+            content: const Text('无法获取有效的版本信息'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      
+      final remoteVersion = tagName.toString().replaceAll(
         RegExp(r'^v'),
         '',
       );

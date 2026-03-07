@@ -33,6 +33,19 @@ jobs:
         run: |
           zip -r -X eureka_mac.zip build/macos/Build/Products/Release/eureka.app
 
+      - name: Extract app version with validation
+        id: extract_version
+        run: |
+          VERSION=$(grep -E "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Error: Invalid version format extracted: '$VERSION'"
+            exit 1
+          fi
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+          
+
       - name: Check if release already exists
         id: check_release
         run: |
