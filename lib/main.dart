@@ -15,11 +15,11 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
-//const String TEST_URL = 'http://192.168.31.58:50000/local_connect_test';
 const String CHANNEL_ID = 'autowifi_channel';
-final logManager = LogManager();
+final logManager = LogManager._internal();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,21 +56,28 @@ Future<void> _initNotificationChannel() async {
 
 @pragma('vm:entry-point')
 Future<void> registerPeriodicTask() async {
-  await Workmanager().registerPeriodicTask(
-    "1",
-    "checkServiceStatusTask",
-    frequency: Duration(minutes: 15),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-      requiresBatteryNotLow: true,
-    ),
-  );
-  logManager.log('后台操作 - 注册任务成功');
+  await Future.delayed(Duration(seconds: 1));
+  
+  try {
+    await Workmanager().registerPeriodicTask(
+      "1",
+      "checkServiceStatusTask",
+      frequency: Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: true,
+      ),
+    );   
+    if (kReleaseMode || logManager != null) {
+      logManager?.log('后台操作 - 注册任务成功');
+    }
+  } catch (e) {
+    print('注册后台任务失败: $e');
+  }
 }
 
 class LogManager extends ChangeNotifier {
-  static final LogManager _instance = LogManager._internal();
-  factory LogManager() => _instance;
+  static LogManager? _instance;
   LogManager._internal();
 
   final List<String> _logs = [];
@@ -143,49 +150,52 @@ class LogManager extends ChangeNotifier {
 
 Future<void> _downloadAndInstallApk(String apkUrl, BuildContext context) async {
   try {
-    showDialog(
+    bool confirmDownload = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('检测到新版本，正在下载'),
-        content: const LinearProgressIndicator(),
+        title: const Text('检测到新版本'),
+        content: const Text('新版本已发布，点击确认将打开系统默认浏览器下载，如果新版本直接安装失败请卸载旧版本再安装一遍'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('下载'),
+          ),
+        ],
       ),
-    );
-
-    final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/app-release.apk';
-    final file = File(filePath);
-
-    final response = await http.get(Uri.parse(apkUrl));
-    if (response.statusCode != 200) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('下载失败，请稍后重试')));
-      return;
-    }
-    await file.writeAsBytes(response.bodyBytes);
-
-    Navigator.of(context).pop();
-
-    final result = await OpenFilex.open(
-      filePath,
-      type: "application/vnd.android.package-archive",
-    );
-
-    if (result.message != null && result.message!.contains('Success')) {
-      logManager.log('安装器调用成功');
-
+    ) ?? false;
+    
+    if (confirmDownload) {
       try {
-        await file.delete();
-        logManager.log('安装包已删除');
-      } catch (deleteError) {
-        logManager.logWarning('删除安装包失败: $deleteError');
+        if (await canLaunchUrl(Uri.parse(apkUrl))) {
+          await launchUrl(
+            Uri.parse(apkUrl),
+            mode: LaunchMode.externalApplication,
+          );
+          logManager.log('已在浏览器中打开下载链接');
+        } else {
+          if (Platform.isAndroid) {
+            final intent = AndroidIntent(
+              action: 'android.intent.action.VIEW',
+              data: apkUrl,
+            );
+            await intent.launch();
+            logManager.log('使用Android Intent打开了下载链接');
+          } else {
+            throw Exception('无法打开下载链接');
+          }
+        }
+      } catch (e, stack) {
+        logManager.logError('打开下载链接失败: $e', stack);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('无法打开下载链接，哈！: $e')));
       }
     } else {
-      logManager.logWarning('安装器调用失败: ${result.message}');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('安装失败: ${result.message}')));
+      logManager.log('用户取消了下载');
     }
   } catch (e, stack) {
     logManager.logError('下载或安装 APK 时发生异常: $e', stack);
@@ -210,7 +220,9 @@ Future<void> _fetchAndCompareVersion(BuildContext context) async {
     final response = await http
         .get(
           Uri.parse(githubApiUrl),
-          headers: {'User-Agent': 'Eureka-gjjgxx-app'},
+          headers: {
+            'User-Agent': 'Eureka-gjjgxx-app',
+          },
         )
         .timeout(const Duration(seconds: 10));
 
@@ -1092,7 +1104,10 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       final response = await http
           .get(
             Uri.parse(githubApiUrl),
-            headers: {'User-Agent': 'Eureka-gjjgxx-app'},
+            headers: {
+              'User-Agent': 'Eureka-gjjgxx-app',
+            },
+            
           )
           .timeout(const Duration(seconds: 10));
 
