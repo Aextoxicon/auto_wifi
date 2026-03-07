@@ -1,1 +1,1 @@
-flutter pub run flutter_launcher_icons && flutter build apk --release && adb install build/app/outputs/flutter-apk/app-release.apk
+flutter pub run flutter_launcher_icons && flutter build apk --release --target-platform android-arm64 && adb install build/app/outputs/flutter-apk/app-release.apk

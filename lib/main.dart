@@ -11,8 +11,6 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
 import 'package:workmanager/workmanager.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:version/version.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -533,17 +531,24 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         final username = prefs.getString('username') ?? '';
         final password = prefs.getString('password') ?? '';
         if (username.isNotEmpty && password.isNotEmpty) {
-          await _startLoop();
-          await Future.delayed(const Duration(milliseconds: 500));
-          bool nowRunning = await service.isRunning();
-          setState(() => status = nowRunning ? '后台已运行' : '启动失败');
+          // 使用microtask来避免阻塞UI，特别是在ARM64架构上
+          Future.microtask(() async {
+            await _startLoop();
+            await Future.delayed(const Duration(milliseconds: 500));
+            bool nowRunning = await service.isRunning();
+            if (mounted) {
+              setState(() => status = nowRunning ? '后台已运行' : '启动失败');
+            }
+          });
         } else {
           setState(() => status = '配置缺失，请先设置账号');
           logManager.logWarning('前台操作 - 配置缺失，无法自动启动服务。');
         }
       }
     } catch (e) {
-      setState(() => status = '服务检查失败');
+      if (mounted) {
+        setState(() => status = '服务检查失败');
+      }
     }
   }
 
@@ -554,41 +559,44 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     });
   }
 
-  void _listenBackgroundStatus() async {
-    try {
-      final service = FlutterBackgroundService();
-      bool isRunning = await service.isRunning();
-      if (isRunning) {
-        setState(() => status = '后台已运行');
-      }
-      service
-          .on('updateCounters')
-          .listen((data) {
-            if (data != null && data is Map) {
-              final newStatus = data['status'] as String? ?? '运行中';
-              if (status != newStatus) {
-                setState(() => status = newStatus);
-              }
-              _countersNotifier.value = {
-                'normal': data['normal'] as int? ?? 0,
-                'reconnect': data['reconnect'] as int? ?? 0,
-                'fail': data['fail'] as int? ?? 0,
-              };
-              final latestLog = data['latestLog'] as String?;
-              if (latestLog != null && latestLog.isNotEmpty) {
-                if (!logManager.logs.contains(latestLog)) {
-                  logManager._logs.add(latestLog);
-                  logManager.notifyListeners();
+  void _listenBackgroundStatus() {
+    // 使用microtask来避免阻塞UI
+    Future.microtask(() async {
+      try {
+        final service = FlutterBackgroundService();
+        bool isRunning = await service.isRunning();
+        if (isRunning && mounted) {
+          setState(() => status = '后台已运行');
+        }
+        service
+            .on('updateCounters')
+            .listen((data) {
+              if (data != null && data is Map && mounted) {
+                final newStatus = data['status'] as String? ?? '运行中';
+                if (status != newStatus) {
+                  setState(() => status = newStatus);
+                }
+                _countersNotifier.value = {
+                  'normal': data['normal'] as int? ?? 0,
+                  'reconnect': data['reconnect'] as int? ?? 0,
+                  'fail': data['fail'] as int? ?? 0,
+                };
+                final latestLog = data['latestLog'] as String?;
+                if (latestLog != null && latestLog.isNotEmpty) {
+                  if (!logManager.logs.contains(latestLog)) {
+                    logManager._logs.add(latestLog);
+                    logManager.notifyListeners();
+                  }
                 }
               }
-            }
-          })
-          .onError((error) {
-            logManager.log('监听后台状态时发生错误: $error');
-          });
-    } catch (e) {
-      logManager.log('初始化后台状态监听失败: $e');
-    }
+            })
+            .onError((error) {
+              logManager.log('监听后台状态时发生错误: $error');
+            });
+      } catch (e) {
+        logManager.log('初始化后台状态监听失败: $e');
+      }
+    });
   }
 
   void _showConfigDialog() {
@@ -667,21 +675,28 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     logManager.log('前台操作 - 尝试启动服务...');
     if (!configured || username.isEmpty || password.isEmpty) {
       logManager.logWarning('前台操作 - 启动失败：未配置账号');
-      setState(() => status = '启动失败：请先配置账号');
+      if (mounted) {
+        setState(() => status = '启动失败：请先配置账号');
+      }
       return;
     }
     try {
       if (!serviceInitialized) {
-        await _initBackgroundService();
+        // 将后台服务初始化放到微任务中，防止阻塞UI
+        await Future.microtask(() async {
+          await _initBackgroundService();
+        });
         serviceInitialized = true;
       }
       final service = FlutterBackgroundService();
       if (Platform.isAndroid) {
         logManager.log('前台操作 - 准备启动后台服务');
         final started = await service.startService();
-        setState(() {
-          status = started ? '启动中...' : '启动失败：系统拒绝';
-        });
+        if (mounted) {
+          setState(() {
+            status = started ? '启动中...' : '启动失败：系统拒绝';
+          });
+        }
         if (mounted) {
           final message = started ? '后台服务启动命令已发送。' : '启动失败：系统拒绝。';
           logManager.log('前台操作 - $message');
@@ -693,7 +708,9 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       _countersNotifier.value = {'normal': 0, 'reconnect': 0, 'fail': 0};
     } catch (e, stack) {
       logManager.logError('前台操作 - 启动服务时发生异常: $e', stack);
-      setState(() => status = '启动失败：发生异常');
+      if (mounted) {
+        setState(() => status = '启动失败：发生异常');
+      }
     }
   }
 

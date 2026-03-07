@@ -33,11 +33,9 @@ android {
 
     buildTypes {
         release {
-            // 调试时建议禁用代码压缩和混淆
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             
-            // 如果要启用代码压缩，请取消下面的注释并注释上面两行
             // isMinifyEnabled = true
             // isShrinkResources = true
             // proguardFiles(
