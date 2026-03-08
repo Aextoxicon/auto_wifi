@@ -39,7 +39,7 @@ jobs:
         run: flutter build windows
 
       - name: build android
-        run: flutter build apk
+        run: flutter build apk --target-platform android-arm64
 
       - name: Package Windows build
         run: |
