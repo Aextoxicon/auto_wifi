@@ -1192,6 +1192,42 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
     }
   }
 
+  Future<void> _immediateLogin() async {
+    logManager.log('前台操作 - 立即登录');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('username') ?? '';
+      final password = prefs.getString('password') ?? '';
+      if (username.isEmpty || password.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请先配置账号和密码')));
+        }
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('正在登录...')));
+      }
+      bool result = await _backgroundLogin(username, password);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result ? '登录成功' : '登录失败')));
+      }
+      logManager.log('前台操作 - 立即登录${result ? '成功' : '失败'}');
+    } catch (e, stack) {
+      logManager.logError('前台操作 - 立即登录异常: $e', stack);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('登录异常: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1224,6 +1260,14 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
                             _startPCLoop();
                           },
                     child: const Text('开始任务'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.6,
+                  child: ElevatedButton(
+                    onPressed: !configured ? null : _immediateLogin,
+                    child: const Text('立即登录'),
                   ),
                 ),
                 const SizedBox(height: 8),
