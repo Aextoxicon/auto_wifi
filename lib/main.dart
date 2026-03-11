@@ -10,7 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
 import "package:android_intent_plus/android_intent.dart";
-import 'package:workmanager/workmanager.dart';
 import 'package:version/version.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,9 +21,6 @@ final logManager = LogManager._internal();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initNotificationChannel();
-  if (Platform.isAndroid) {
-    Workmanager().initialize(registerPeriodicTask);
-  }
   runApp(const MyApp());
 }
 
@@ -49,28 +45,6 @@ Future<void> _initNotificationChannel() async {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
-  }
-}
-
-@pragma('vm:entry-point')
-Future<void> registerPeriodicTask() async {
-  await Future.delayed(Duration(seconds: 1));
-  
-  try {
-    await Workmanager().registerPeriodicTask(
-      "1",
-      "checkServiceStatusTask",
-      frequency: Duration(minutes: 15),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-        requiresBatteryNotLow: true,
-      ),
-    );   
-    if (kReleaseMode || logManager != null) {
-      logManager?.log('后台操作 - 注册任务成功');
-    }
-  } catch (e) {
-    print('注册后台任务失败: $e');
   }
 }
 
@@ -454,7 +428,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     _listenBackgroundLogs();
     _checkServiceStatus();
     _requestNotificationPermission();
-    registerPeriodicTask();
     _checkBatteryOptimization();
   }
 
@@ -550,13 +523,6 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
         setState(() => status = '服务检查失败');
       }
     }
-  }
-
-  void callbackDispatcher() async {
-    Workmanager().executeTask((task, inputData) {
-      _checkServiceStatus();
-      return Future.value(true);
-    });
   }
 
   void _listenBackgroundStatus() {
