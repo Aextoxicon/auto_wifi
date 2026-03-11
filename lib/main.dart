@@ -1102,33 +1102,6 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
         );
         final assets = jsonResponse['assets'] as List;
 
-        String? apkDownloadUrl;
-        for (var asset in assets) {
-          if (asset['name'] == 'app-release.apk') {
-            String originalUrl = asset['browser_download_url'];
-            apkDownloadUrl = 'https://gh-proxy.com/' + originalUrl;
-            break;
-          }
-        }
-
-        if (apkDownloadUrl == null) {
-          logManager.logWarning('版本检查 - 未找到app-release.apk文件');
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('版本检查失败'),
-              content: const Text('未找到可用的APK文件'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('确定'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-
         logManager.log('版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion');
 
         final remote = Version.parse(remoteVersion);
