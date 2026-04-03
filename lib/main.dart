@@ -1362,6 +1362,12 @@ Future<void> backgroundTask(ServiceInstance service) async {
   int consecutiveErrors = 0;
   const maxConsecutiveErrors = 3;
 
+  // 动态间隔配置
+  int currentInterval = 500; // 初始500ms快速检测
+  int stableCount = 0; // 连续正常计数
+  const int maxInterval = 10000; // 最大间隔10秒
+  const int fastInterval = 500; // 快速检测间隔
+
   try {
     logManager.logDebug('后台任务 - 获取 SharedPreferences 实例');
     final prefs = await SharedPreferences.getInstance();
@@ -1391,73 +1397,104 @@ Future<void> backgroundTask(ServiceInstance service) async {
     int reconnect = 0;
     int fail = 0;
 
-    logManager.log('后台任务 - 启动定时检测 (默认1秒周期)');
-    timer = Timer.periodic(Duration(seconds: 1), (_) async {
-      logManager.logDebug('后台任务 - 定时检测循环开始');
-      try {
-        final username = prefs.getString('username') ?? '';
-        final password = prefs.getString('password') ?? '';
-        logManager.logDebug('后台任务 - 配置检查: 用户名存在=${username.isNotEmpty}');
-        if (username.isEmpty || password.isEmpty) {
-          logManager.logWarning('后台任务 - 配置为空，中止循环');
-          service.invoke('updateCounters', {
-            'status': '配置缺失',
-            'latestLog': logManager.getLatestLog(),
-          });
-          return;
-        }
-
-        logManager.logDebug('后台任务 - 开始网络检测');
-        bool netOk = await _backgroundIsInternetOk();
-        logManager.logDebug('后台任务 - 网络检测完成: $netOk');
-
-        bool ok = false;
-        if (netOk) {
-          normal++;
-          logManager.log('后台任务 - 网络正常，计数增加');
-        } else {
-          logManager.log('后台任务 - 网络异常，开始登录');
-          bool loginResult = await _backgroundLogin(username, password);
-          if (loginResult) {
-            reconnect++;
-            ok = true;
-          } else {
-            fail++;
-            ok = false;
-          }
-        }
-
-        consecutiveErrors = 0;
-        service.invoke('updateCounters', {
-          'normal': normal,
-          'reconnect': reconnect,
-          'fail': fail,
-          'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
-          'latestLog': logManager.getLatestLog(),
-        });
-      } catch (e, stack) {
-        consecutiveErrors++;
-        logManager.logError(
-          '后台任务发生错误 ($consecutiveErrors/$maxConsecutiveErrors): $e',
-          stack,
-        );
-        if (consecutiveErrors >= maxConsecutiveErrors) {
-          logManager.logError('后台任务连续错误过多，自动停止服务');
-          service.invoke('updateCounters', {
-            'status': '服务异常停止',
-            'latestLog': logManager.getLatestLog(),
-          });
-          timer?.cancel();
-          service.stopSelf();
-        }
+    // 动态定时器调度函数
+    void scheduleNextCheck() {
+      timer?.cancel();
+      timer = Timer(Duration(milliseconds: currentInterval), () async {
+        logManager.logDebug('后台任务 - 定时检测循环开始 (间隔: ${currentInterval}ms)');
         try {
+          final username = prefs.getString('username') ?? '';
+          final password = prefs.getString('password') ?? '';
+          logManager.logDebug('后台任务 - 配置检查: 用户名存在=${username.isNotEmpty}');
+          if (username.isEmpty || password.isEmpty) {
+            logManager.logWarning('后台任务 - 配置为空，中止循环');
+            service.invoke('updateCounters', {
+              'status': '配置缺失',
+              'latestLog': logManager.getLatestLog(),
+            });
+            return;
+          }
+
+          logManager.logDebug('后台任务 - 开始网络检测');
+          bool netOk = await _backgroundIsInternetOk();
+          logManager.logDebug('后台任务 - 网络检测完成: $netOk');
+
+          bool ok = false;
+          if (netOk) {
+            normal++;
+            stableCount++;
+            logManager.log('后台任务 - 网络正常，连续稳定 $stableCount 次');
+
+            // 动态调整间隔：稳定后逐渐延长，但不超过最大值
+            if (stableCount > 5 && currentInterval < maxInterval) {
+              currentInterval = (currentInterval * 1.5).toInt();
+              if (currentInterval > maxInterval) {
+                currentInterval = maxInterval;
+              }
+              logManager.log('后台任务 - 网络稳定，延长检测间隔至 ${currentInterval}ms');
+            }
+          } else {
+            logManager.log('后台任务 - 网络异常，开始登录');
+            // 网络异常，重置为快速检测
+            if (currentInterval != fastInterval) {
+              currentInterval = fastInterval;
+              stableCount = 0;
+              logManager.log('后台任务 - 恢复快速检测模式 (间隔: ${currentInterval}ms)');
+            }
+
+            bool loginResult = await _backgroundLogin(username, password);
+            if (loginResult) {
+              reconnect++;
+              ok = true;
+            } else {
+              fail++;
+              ok = false;
+            }
+          }
+
+          consecutiveErrors = 0;
           service.invoke('updateCounters', {
-            'status': '任务错误',
+            'normal': normal,
+            'reconnect': reconnect,
+            'fail': fail,
+            'status': netOk ? '网络正常' : (ok ? '重连成功' : '重连失败'),
             'latestLog': logManager.getLatestLog(),
           });
-        } catch (_) {}
-      }
-    });
+
+          // 调度下一次检测
+          scheduleNextCheck();
+        } catch (e, stack) {
+          consecutiveErrors++;
+          logManager.logError(
+            '后台任务发生错误 ($consecutiveErrors/$maxConsecutiveErrors): $e',
+            stack,
+          );
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            logManager.logError('后台任务连续错误过多，自动停止服务');
+            service.invoke('updateCounters', {
+              'status': '服务异常停止',
+              'latestLog': logManager.getLatestLog(),
+            });
+            timer?.cancel();
+            service.stopSelf();
+            return;
+          }
+          try {
+            service.invoke('updateCounters', {
+              'status': '任务错误',
+              'latestLog': logManager.getLatestLog(),
+            });
+          } catch (_) {}
+
+          // 出错后继续调度，但保持快速检测
+          currentInterval = fastInterval;
+          scheduleNextCheck();
+        }
+      });
+    }
+
+    logManager.log('后台任务 - 启动动态定时检测 (初始间隔: ${currentInterval}ms)');
+    scheduleNextCheck();
   } catch (e, stack) {
     logManager.logError('后台任务发生致命错误: $e', stack);
     try {
