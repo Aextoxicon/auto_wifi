@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -450,16 +451,20 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('强制关闭服务'),
-        content: const Text('跳转到设置页面，点击强行停止以彻底停止此App以及后台服务，然后别忘了划掉后台窗口'),
+        title: const Text('停止服务'),
+        content: const Text('确定要停止后台服务并退出应用吗？'),
         actions: [
           TextButton(onPressed: Navigator.of(ctx).pop, child: const Text('取消')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              _openAppSettings();
+              await _forceStopAllServices();
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (mounted) {
+                SystemNavigator.pop();
+              }
             },
-            child: const Text('去设置'),
+            child: const Text('确定'),
           ),
         ],
       ),
@@ -804,7 +809,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                     width: MediaQuery.of(context).size.width * 0.6,
                     child: ElevatedButton(
                       onPressed: _showExitDialog,
-                      child: const Text('跳转设置强行停止APP'),
+                      child: const Text('停止服务并退出'),
                     ),
                   ),
                 ),
