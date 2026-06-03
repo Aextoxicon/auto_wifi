@@ -8,8 +8,9 @@ import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:version/version.dart';
 
-const String TEST_URL = 'http://www.msftconnecttest.com/connecttest.txt';
+const String testUrl = 'http://www.msftconnecttest.com/connecttest.txt';
 final logManager = LogManager._internal();
 
 Future<void> main() async {
@@ -18,7 +19,6 @@ Future<void> main() async {
 }
 
 class LogManager extends ChangeNotifier {
-  static LogManager? _instance;
   LogManager._internal();
 
   final List<String> _logs = [];
@@ -71,7 +71,7 @@ class LogManager extends ChangeNotifier {
     );
 
     if (!kDebugMode && (level == 'error' || level == 'warning')) {
-      print(logMessage);
+      debugPrint(logMessage);
     }
   }
 
@@ -129,7 +129,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       configured = username.isNotEmpty;
       setState(() {});
     } catch (e) {
-      print('初始化配置失败: $e');
+      debugPrint('初始化配置失败: $e');
     }
   }
 
@@ -206,7 +206,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
               response.body.contains('dr1003({"result":1}'));
       return result;
     } catch (e) {
-      print('登录异常: $e');
+      debugPrint('登录异常: $e');
       return false;
     }
   }
@@ -214,7 +214,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
   Future<bool> _pcIsInternetOk() async {
     try {
       final resp = await http
-          .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
+          .get(Uri.parse(testUrl), headers: {'Cache-Control': 'no-cache'})
           .timeout(const Duration(seconds: 1));
       final result =
           resp.statusCode == 200 &&
@@ -325,11 +325,13 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
 
         if (remote <= local) {
           logManager.log('版本检查 - 当前已是最新版本');
+          if (!mounted) return;
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
         } else {
           logManager.log('版本检查 - 有新版本可用: $remoteVersion');
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -341,6 +343,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       }
     } catch (e, stack) {
       logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('检查更新失败：$e')));
