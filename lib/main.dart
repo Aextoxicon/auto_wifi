@@ -399,7 +399,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
           title: const Text('请手动关闭电池优化'),
           content: const Text(
             '为确保后台服务正常运行，请前往：\n'
-            '设置 → 电池 → 电池优化 → 找到本应用 → 选择“不优化”',
+            '设置 → 电池 → 电池优化 → 找到本应用 → 选择"不优化"',
           ),
           actions: [
             TextButton(
@@ -713,7 +713,7 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('已停止所有服务,再次启动服务以应用配置')));
+        ).showSnackBar(const SnackBar(content: Text('已停止所有服务，再次启动服务以应用配置')));
       }
     } catch (e, stack) {
       logManager.logError('强制停止服务时发生异常: $e', stack);
@@ -847,15 +847,15 @@ class _DrcomAuthPageState extends State<DrcomAuthPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '网络正常: ${counters['normal']} 次',
+                      '正常次数: ${counters['normal']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连成功: ${counters['reconnect']} 次',
+                      '重连次数: ${counters['reconnect']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连失败: ${counters['fail']} 次',
+                      '失败次数: ${counters['fail']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                   ],
@@ -1095,7 +1095,6 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
             headers: {
               'User-Agent': 'Eureka-gjjgxx-app',
             },
-            
           )
           .timeout(const Duration(seconds: 10));
 
@@ -1240,15 +1239,15 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '网络正常: ${counters['normal']} 次',
+                      '正常次数: ${counters['normal']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连成功: ${counters['reconnect']} 次',
+                      '重连次数: ${counters['reconnect']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '重连失败: ${counters['fail']} 次',
+                      '失败次数: ${counters['fail']} 次',
                       style: const TextStyle(fontSize: 14),
                     ),
                   ],
@@ -1280,23 +1279,6 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
       ),
     );
   }
-}
-
-// ====== 后台服务初始化 ======
-Future<void> _initBackgroundService() async {
-  final service = FlutterBackgroundService();
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: backgroundTask,
-      autoStart: true,
-      isForegroundMode: true,
-      notificationChannelId: CHANNEL_ID,
-      initialNotificationTitle: 'Eureka-gjjgxx',
-      initialNotificationContent: '保持校园网连接',
-      foregroundServiceTypes: [AndroidForegroundType.dataSync],
-    ),
-    iosConfiguration: IosConfiguration(),
-  );
 }
 
 // ====== 后台任务逻辑 ======
@@ -1345,7 +1327,7 @@ Future<bool> _backgroundIsInternetOk() async {
     logManager.logDebug('后台认证 - 网络检测开始');
     final resp = await http
         .get(Uri.parse(TEST_URL), headers: {'Cache-Control': 'no-cache'})
-        .timeout(Duration(seconds: 1));
+        .timeout(const Duration(seconds: 1));
     final result =
         resp.statusCode == 200 && resp.body.trim() == 'Microsoft Connect Test';
     logManager.logDebug('后台认证 - 网络检测结果: $result (状态码: ${resp.statusCode})');
@@ -1432,7 +1414,7 @@ Future<void> backgroundTask(ServiceInstance service) async {
 
             // 动态调整间隔：稳定后逐渐延长，但不超过最大值
             if (stableCount > 5 && currentInterval < maxInterval) {
-              currentInterval = (currentInterval * 1.5).toInt();
+              currentInterval = (currentInterval * 1.1).toInt();
               if (currentInterval > maxInterval) {
                 currentInterval = maxInterval;
               }
@@ -1512,4 +1494,20 @@ Future<void> backgroundTask(ServiceInstance service) async {
     }
     service.stopSelf();
   }
+}
+
+Future<void> _initBackgroundService() async {
+  final service = FlutterBackgroundService();
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: backgroundTask,
+      autoStart: true,
+      isForegroundMode: true,
+      notificationChannelId: CHANNEL_ID,
+      initialNotificationTitle: 'Eureka-gjjgxx',
+      initialNotificationContent: '用于保持校园网连接的后台服务',
+      foregroundServiceTypes: [AndroidForegroundType.dataSync],
+    ),
+    iosConfiguration: IosConfiguration(),
+  );
 }
