@@ -288,6 +288,19 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
     );
   }
 
+  void _launchUrl(String url) async {
+    try {
+      await launchUrl(Uri.parse(url));
+    } catch (e) {
+      // 如果 launchUrl 失败，尝试降级使用 launch
+      try {
+        await launch(url);
+      } catch (e2) {
+        logManager.logError('无法打开浏览器: $e2');
+      }
+    }
+  }
+
   Future<void> _fetchAndCompareVersion() async {
     const githubApiUrl =
         'https://api.github.com/repos/Aextoxicon/eureka/releases/latest';
@@ -297,56 +310,72 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
 
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       String localVersion = packageInfo.version;
-
       logManager.log('版本检查 - 本地版本: $localVersion');
 
       final response = await http
           .get(
             Uri.parse(githubApiUrl),
             headers: {
+              'Accept': 'application/vnd.github.v3+json', // 显式声明 API 版本
               'User-Agent': 'Eureka-gjjgxx-app',
             },
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 15)); // 增加到 15 秒
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
+
+        if (jsonResponse['tag_name'] == null) {
+          throw Exception('API 返回数据格式异常，缺少 tag_name');
+        }
+
         final remoteVersion = jsonResponse['tag_name'].toString().replaceAll(
           RegExp(r'^v'),
           '',
         );
-
-        logManager.log(
-          '版本检查 - 远程版本: $remoteVersion, 本地版本: $localVersion',
-        );
+        logManager.log('版本检查 - 远程版本: $remoteVersion');
 
         final remote = Version.parse(remoteVersion);
         final local = Version.parse(localVersion);
 
         if (remote <= local) {
-          logManager.log('版本检查 - 当前已是最新版本');
           if (!mounted) return;
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
         } else {
-          logManager.log('版本检查 - 有新版本可用: $remoteVersion');
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                '发现新版本 $remoteVersion，请访问 https://github.com/aextoxicon/Eureka-gjjgxx/releases获取更新',
+              content: Text('发现新版本 $remoteVersion，请前往 GitHub 更新'),
+              action: SnackBarAction(
+                label: '去下载',
+                onPressed: () {
+                  _launchUrl(githubReleasesUrl);
+                },
               ),
             ),
           );
         }
+      } else {
+        logManager.logError('版本检查 - HTTP 错误: ${response.statusCode}', null);
+        throw Exception('服务器返回错误: ${response.statusCode}');
       }
     } catch (e, stack) {
-      logManager.logError('版本检查 - 抓取远程版本异常: $e', stack);
+      logManager.logError('版本检查 - 异常: $e', stack);
+
+      String errorMsg = '检查更新失败';
+      if (e.toString().contains('HandshakeException') ||
+          e.toString().contains('SocketException')) {
+        errorMsg = '网络连接失败，请检查网络或稍后重试';
+      } else if (e.toString().contains('TimeoutException')) {
+        errorMsg = '请求超时，请检查网络';
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('检查更新失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(errorMsg)));
     }
   }
 
