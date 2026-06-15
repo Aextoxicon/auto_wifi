@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:version/version.dart';
 
 const String testUrl = 'http://www.msftconnecttest.com/connecttest.txt';
+const String githubReleasesUrl = 'https://github.com/Aextoxicon/eureka/releases';
 final logManager = LogManager._internal();
 
 Future<void> main() async {
