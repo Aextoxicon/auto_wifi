@@ -398,21 +398,7 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
         context,
       ).showSnackBar(SnackBar(content: Text(errorMsg)));
     }
-  } catch (e, stack) {
-    logManager.logError('版本检查 - 异常: $e', stack);
-    
-    String errorMsg = '检查更新失败';
-    if (e.toString().contains('HandshakeException') || e.toString().contains('SocketException')) {
-      errorMsg = '网络连接失败，请检查网络或稍后重试';
-    } else if (e.toString().contains('TimeoutException')) {
-      errorMsg = '请求超时，请检查网络';
-    }
-    
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
   }
-}
-
 
   Future<void> _immediateLogin() async {
     logManager.log('前台操作 - 立即登录');
