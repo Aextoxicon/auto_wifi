@@ -170,13 +170,30 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
           _updateCounters('normal');
           setState(() => status = '网络正常');
         } else {
-          bool loginResult = await _pcLogin(username, password);
-          if (loginResult) {
-            _updateCounters('reconnect');
-            setState(() => status = '重连成功');
+          // 登录限流：防止过于频繁的登录请求
+          final now = DateTime.now();
+          if (_isLoggingIn) {
+            logManager.logWarning('后台任务 - 已有登录请求在进行中，跳过本次');
+            setState(() => status = '重连失败（登录进行中）');
+          } else if (now.difference(_lastLoginTime) < _minLoginInterval) {
+            final remaining = _minLoginInterval - now.difference(_lastLoginTime);
+            logManager.logWarning('后台任务 - 登录过于频繁，跳过（距上次登录 ${now.difference(_lastLoginTime).inMilliseconds}ms，需等待 ${remaining.inMilliseconds}ms）');
+            setState(() => status = '重连失败（登录限流）');
           } else {
-            _updateCounters('fail');
-            setState(() => status = '重连失败');
+            _isLoggingIn = true;
+            _lastLoginTime = now;
+            try {
+              bool loginResult = await _pcLogin(username, password);
+              if (loginResult) {
+                _updateCounters('reconnect');
+                setState(() => status = '重连成功');
+              } else {
+                _updateCounters('fail');
+                setState(() => status = '重连失败');
+              }
+            } finally {
+              _isLoggingIn = false;
+            }
           }
         }
       } catch (e) {
@@ -212,6 +229,11 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
     }
   }
 
+  // 登录限流保护
+  DateTime _lastLoginTime = DateTime(2000);
+  bool _isLoggingIn = false;
+  static const Duration _minLoginInterval = Duration(seconds: 5);
+
   Future<bool> _pcIsInternetOk() async {
     try {
       final resp = await http
@@ -222,10 +244,9 @@ class _DrcomAuthPCState extends State<DrcomAuthPC> {
           resp.body.trim() == 'Microsoft Connect Test';
       return result;
     } catch (e) {
-      final prefs = await SharedPreferences.getInstance();
-      String username = prefs.getString('username') ?? '';
-      String password = prefs.getString('password') ?? '';
-      await _pcLogin(username, password);
+      // 注意：不在 catch 中触发登录，由 _runPCTask 统一处理
+      // 避免与定时任务的登录逻辑产生竞态条件（双重登录）
+      logManager.logWarning('网络检测异常（由 _runPCTask 统一处理登录）');
       return false;
     }
   }
