@@ -1,13 +1,14 @@
-name: build for linux
+﻿name: build for mac
 
-# ⚠️ 已废弃，功能已合并到 build.yml（build all platforms）
-# 保留仅用于备份参考
 on:
-  workflow_dispatch:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write
 
@@ -17,9 +18,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -28,15 +26,12 @@ jobs:
       - name: install dep
         run: flutter clean && flutter pub get && flutter pub run flutter_launcher_icons
 
-      - name: build linux
-        run: flutter build linux
+      - name: build macos
+        run: flutter build macos
 
-      - name: Package linux build
+      - name: Zip built app
         run: |
-          cd build/linux/x64/release
-          tar -czf ../../../eureka_linux.tar.gz bundle/
-          cd ../../..
-          echo "Packaged eureka_linux.tar.gz"
+          zip -r -X eureka_mac.zip build/macos/Build/Products/Release/eureka.app
 
       - name: Extract app version with validation
         id: extract_version
@@ -49,7 +44,7 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
-
+          
       - name: Create or update tag and release (with overwrite)
         run: |
           TAG_NAME="v${{ env.APP_VERSION }}"
@@ -73,8 +68,8 @@ jobs:
           # Create or update release with clobber
           gh release create "$TAG_NAME" \
             --title "Release $TAG_NAME" \
-            --notes "Automated release by GitHub Actions, for Linux platform" \
-            eureka_linux.tar.gz \
+            --notes "Automated release by GitHub Actions, for macOS platform" \
+            eureka_mac.zip \
             --clobber
           echo "Successfully created/updated release: $TAG_NAME"
         env:

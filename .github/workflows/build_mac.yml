@@ -1,10 +1,9 @@
 ﻿name: build for mac
 
+# ⚠️ 已废弃，功能已合并到 build.yml（build all platforms）
+# 保留仅用于备份参考
 on:
-  push:
-    branches: ["master"]
-  pull_request:
-    branches: ["master"]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -45,46 +44,32 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
           
-
-      - name: Check if release already exists
-        id: check_release
+      - name: Create or update tag and release (with overwrite)
         run: |
-          if gh release view "v${{ env.APP_VERSION }}" >/dev/null 2>&1; then
-            echo "Release v${{ env.APP_VERSION }} already exists"
-            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "Release v${{ env.APP_VERSION }} does not exist"
-            echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create tag and release with version file
-        if: ${{ steps.check_release.outputs.exists == 'false' }}
-        run: |
+          TAG_NAME="v${{ env.APP_VERSION }}"
+          
+          # Configure git user
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          if git rev-parse "v${{ env.APP_VERSION }}" >/dev/null 2>&1; then
-            echo "Tag v${{ env.APP_VERSION }} already exists locally"
-          else
-            git tag -a "v${{ env.APP_VERSION }}" -m "Release v${{ env.APP_VERSION }}"
-          fi
-          git push origin "v${{ env.APP_VERSION }}"
           
-          gh release create "v${{ env.APP_VERSION }}" \
-            --title "Release v${{ env.APP_VERSION }}" \
-            --notes "Automated release by GitHub Actions, for macOS and Windows" \
-            eureka_mac.zip
-          echo "Successfully created release with version.txt and mac file"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload additional file to existing release
-        if: ${{ steps.check_release.outputs.exists == 'true' }}
-        run: |
-          gh release upload "v${{ env.APP_VERSION }}" eureka_mac.zip --clobber
-          echo "Successfully uploaded version.txt and macOS file to existing release"
+          # Create local tag if it doesn't exist
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Local tag $TAG_NAME already exists"
+          else
+            git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+            echo "Created local tag: $TAG_NAME"
+          fi
+          
+          # Force push tag (overwrite if exists remotely)
+          git push origin "$TAG_NAME" --force
+          echo "Force pushed tag: $TAG_NAME"
+          
+          # Create or update release with clobber
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Automated release by GitHub Actions, for macOS platform" \
+            eureka_mac.zip \
+            --clobber
+          echo "Successfully created/updated release: $TAG_NAME"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
